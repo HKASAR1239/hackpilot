@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
-import { randomInt } from 'node:crypto';
+import { randomInt, createHash } from 'node:crypto';
 import { createApp } from '../engine/server.mjs';
 import { generationSettings } from '../engine/provider.mjs';
 import { generationPrompt } from '../engine/prompts.mjs';
@@ -12,15 +12,18 @@ import { evaluationCases } from '../tests/evaluation/cases.mjs';
 const args = process.argv.slice(2);
 if (!args.includes('--live')) {
   console.log(
-    'Opt-in real model comparison: npm run eval:quality -- --live [--case shuttle|museum|equipment] [--out directory]. Uses your Codex account. Both arms receive the same fixed plan and source text; the pipeline uses more calls.',
+    'Opt-in real model comparison: npm run eval:quality -- --live [--case shuttle|museum|equipment|vague] [--minutes 30] [--out directory]. Comma-separated cases are accepted. Uses your Codex account. Both arms receive the same fixed plan and source text; the pipeline uses more calls.',
   );
 } else {
   const option = (name) =>
     args.includes(name) ? args[args.indexOf(name) + 1] : null;
   const selected = evaluationCases.filter(
-    (c) => !option('--case') || c.id === option('--case'),
+    (c) => !option('--case') || option('--case').split(',').includes(c.id),
   );
   if (!selected.length) throw new Error('Unknown evaluation case.');
+  const minutes = Number(option('--minutes') || 60);
+  if (!Number.isFinite(minutes) || minutes < 30 || minutes > 43200)
+    throw new Error('Use a deadline between 30 minutes and 30 days.');
   const out = resolve(
     option('--out') ||
       join(
@@ -37,10 +40,25 @@ if (!args.includes('--live')) {
   const report = {
     at: new Date().toISOString(),
     configuration: generationSettings(),
+    deadlineMinutes: minutes,
     scope:
-      'Post-planning comparison; both arms receive the same fixed plan and brief. Baseline: one strong prompt with all outputs and a self-check instruction, xhigh by default. Pipeline: shared reference, separate production at high, mechanical checks, review at xhigh, targeted repairs. Extra pipeline tokens and time are reported. Mechanical results alone do not establish better judgment or presentation quality.',
+      'Post-planning comparison; both arms receive the same fixed plan, brief and calendar deadline. Baseline: one strong prompt with all outputs and a self-check instruction, xhigh by default. Adaptive pipeline: sourced rubric, persistent deadline, shared reference, separate production at high, mechanical checks, separate jury assessment and optional controlled trials. Pipeline xhigh/max requests use high for deadlines of an hour or less; baseline retains xhigh. Extra pipeline tokens and time are reported. Mechanical results alone do not establish better judgment or presentation quality. Concept selection, source discovery and week-long field work are outside this protocol.',
     cases: [],
   };
+  report.engineFiles = await Promise.all(
+    (await readdir('engine'))
+      .filter((f) => f.endsWith('.mjs'))
+      .sort()
+      .map(async (file) => ({
+        file: 'engine/' + file,
+        sha256: createHash('sha256')
+          .update(await readFile(join('engine', file)))
+          .digest('hex'),
+      })),
+  );
+  report.engineSourceHash = createHash('sha256')
+    .update(JSON.stringify(report.engineFiles))
+    .digest('hex');
   const persist = () =>
     writeFile(join(out, 'report.json'), JSON.stringify(report, null, 2));
   try {
@@ -54,7 +72,8 @@ if (!args.includes('--live')) {
         const m = await app.store.create({
           brief: scenario.brief,
           locale: 'en',
-          hours: 1,
+          hours: minutes / 60,
+          workflowVersion: 2,
           provider: 'codex',
           url: '',
         });
@@ -62,6 +81,7 @@ if (!args.includes('--live')) {
           { id: 'S1', title: 'Synthetic assignment', text: scenario.brief },
         ];
         m.plan = normalizePlan(structuredClone(scenario.plan), m.sources);
+        m.name = m.plan.name;
         m.generationSettings = generationSettings();
         await app.store.save(m);
         await mkdir(join(app.store.dir(m.id), 'generation'), {
@@ -150,6 +170,7 @@ if (!args.includes('--live')) {
         } catch (error) {
           m.status = 'failed';
           m.error = error.message;
+          await app.store.save(m);
         }
         const result = {
           status: m.status,
@@ -159,6 +180,9 @@ if (!args.includes('--live')) {
           repairs: m.repairs,
           mechanical: m.tests || null,
           external,
+          jury: m.jury || null,
+          deadlineAt: m.schedule?.deadlineAt,
+          lastVerified: m.lastVerified || null,
           qualitativeReview:
             'Requires inspection of the blinded bundles. No automatic superiority claim.',
           project: m.id,

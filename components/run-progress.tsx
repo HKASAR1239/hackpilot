@@ -77,6 +77,12 @@ export function RunProgress({ mission }: { mission: Mission }) {
             {t('Début')} :{' '}
             {new Date(mission.currentCall.startedAt).toLocaleTimeString()}
           </p>
+          {mission.currentCall.timeoutMs && (
+            <p>
+              {t('Temps alloué à cet appel')} :{' '}
+              {Math.ceil(mission.currentCall.timeoutMs / 1000)} s
+            </p>
+          )}
           <p>
             {t('Dernier événement reçu')} :{' '}
             {mission.currentCall.lastEventAt
@@ -120,7 +126,13 @@ export function RunProgress({ mission }: { mission: Mission }) {
           {t(
             'Le projet avance automatiquement. Vous pouvez le laisser travailler.',
           )}{' '}
-          <span>{t('2 h maximum par tentative.')}</span>
+          <span>
+            {t(
+              mission.schedule
+                ? 'Échéance persistante · sessions de 2 h maximum.'
+                : '2 h maximum par tentative.',
+            )}
+          </span>
         </p>
       )}
     </section>

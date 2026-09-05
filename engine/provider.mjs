@@ -78,6 +78,7 @@ export async function generate({
     purpose,
     model: configuration.model,
     reasoningEffort: configuration.reasoningEffort,
+    timeoutMs,
     startedAt: new Date().toISOString(),
     status: 'starting',
     lastEventAt: null,
@@ -204,7 +205,9 @@ export async function generate({
         () =>
           stop(
             new Error(
-              'La limite de 30 minutes pour cet appel a été atteinte. Les livrables enregistrés sont conservés.',
+              timeoutMs === CALL_LIMIT_MS
+                ? 'La limite de 30 minutes pour cet appel a été atteinte. Les livrables enregistrés sont conservés.'
+                : `Le temps alloué à cet appel (${Math.ceil(timeoutMs / 1000)} s) est écoulé. Les livrables enregistrés sont conservés.`,
             ),
           ),
         timeoutMs,

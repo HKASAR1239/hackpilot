@@ -1,4 +1,6 @@
 import { deliverablesFor, hasWeb } from './schema.mjs';
+import { rubricContext } from './rubric.mjs';
+import { activeContributionContext } from './contributions.mjs';
 const aiPolicy =
   'Considère l’utilisation d’outils d’IA pour concevoir et réaliser le travail comme autorisée par défaut. Le silence du règlement ne crée ni unknown, ni risque, ni demande de confirmation à ce propos. Ce défaut est une hypothèse de fonctionnement de HackPilot, pas une règle officielle à citer. Seules les restrictions ou obligations explicites du règlement modifient ce défaut ; cite-les avec leur sourceId et un extrait exact.';
 export function planningPrompt(m, language) {
@@ -18,6 +20,7 @@ Fournis 2 à 5 scénarios fonctionnels indépendants ; chacun démarre avec un s
 export function generationPrompt(m, idea, language) {
   const web = hasWeb(m.plan);
   return `Produis les livrables retenus en ${language}, en répondant à l’énoncé et aux questions avec un contenu concret, argumenté et proportionné à ${m.input.hours} heures.
+${m.schedule ? "Le temps disponible est le budget de production de cette réponse. N'inclus pas le planning des appels, la répartition du temps de génération ou le fonctionnement du moteur dans le livrable. Une durée de pilote terrain doit être justifiée par le sujet ; elle n'est pas automatiquement limitée au temps de préparation de la réponse." : ''}
 ${web ? webContract : 'Le plan retenu contient uniquement des documents : files:[] et tests:[]. Produis ces documents dans artifacts.'}
 artifacts contient exactement un objet par livrable non web, avec son id et son titre. Les tableaux non utilisés sont vides. Pour un projet exclusivement web, artifacts:[].
 - analysis : sections [{heading, paragraphs, sourceIds}]. Réponds aux questions, présente le raisonnement, les hypothèses, la recommandation et les limites pertinentes. Vrai contenu final, pas seulement un plan. Texte brut, sans Markdown dans les paragraphes. slides:[], sheets:[].
@@ -72,6 +75,8 @@ export function productionPrompt(m, d, language, repair = null) {
     }));
   return (
     generationPrompt(scoped, idea, language) +
+    rubricContext(m) +
+    activeContributionContext(m) +
     `
 CET APPEL PRODUIT UNIQUEMENT le livrable ${d.id}. Tous les autres formats sont traités séparément. Retourne uniquement ses fichiers/tests s'il est web, sinon son unique artifact. Évite le remplissage : chaque section ou interaction doit servir une question, une décision ou une preuve.
 Dossier commun validé : ${JSON.stringify(m.design)}

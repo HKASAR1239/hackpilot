@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { pdfFixture, pptxFixture, imageFixture } from '../tests/fixtures.mjs';
 import { extractDocument } from '../engine/documents.mjs';
-const base = 'http://127.0.0.1:4317';
+const base = process.env.HACKPILOT_URL || 'http://127.0.0.1:4317';
 const browser = await chromium.launch();
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1050 },

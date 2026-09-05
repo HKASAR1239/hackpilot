@@ -17,6 +17,10 @@ import {
 } from '@/lib/workspace-view.mjs';
 import { RunProgress } from '@/components/run-progress';
 import { QualityEvidence } from '@/components/quality-evidence';
+import {
+  AdaptiveWorkspace,
+  ScheduleSummary,
+} from '@/components/adaptive-workspace';
 import { DocumentUpload, warningLabels } from '@/components/document-upload';
 import {
   ArrowUpRight,
@@ -58,6 +62,8 @@ const statuses: Record<string, string> = {
   failed: 'À reprendre',
   cancelled: 'Arrêtée',
   interrupted: 'Interrompue',
+  paused: 'Jalon atteint',
+  expired: 'Échéance atteinte',
 };
 const example =
   'Construire une application pour coordonner les surplus alimentaires d’une association. Ajouter un don avec sa quantité, filtrer les disponibilités et réserver une collecte. Le prototype doit fonctionner localement et conserver les données après rechargement. Critères : utilité, fonctionnement et design. Démonstration de 3 minutes.';
@@ -265,6 +271,7 @@ export default function Home() {
           brief,
           url,
           hours: Number(hours),
+          callBudget: Number(draft.callBudget || '24'),
           provider,
           locale,
           documentIds: documents.map((doc) => doc.id),
@@ -663,13 +670,19 @@ export default function Home() {
                         <Input
                           id="hours"
                           type="number"
-                          min="1"
+                          min="0.5"
+                          step="0.5"
                           max="720"
                           value={hours}
                           onChange={(e) => setHours(e.target.value)}
                         />
                         <span>{t('heures')}</span>
                       </div>
+                      <p className="field-help">
+                        {t(
+                          'De 30 minutes à 30 jours. La deadline est fixée au lancement et conservée à la reprise.',
+                        )}
+                      </p>
                     </div>
                     <div className="generation-settings">
                       <button
@@ -689,6 +702,25 @@ export default function Home() {
                         <ChevronRight size={15} />
                       </button>
                       <div id="generation-settings" hidden={!settingsOpen}>
+                        <label htmlFor="call-budget">
+                          {t('Budget d’appels au modèle')}
+                        </label>
+                        <Input
+                          id="call-budget"
+                          type="number"
+                          min="8"
+                          max="72"
+                          step="1"
+                          value={draft.callBudget || '24'}
+                          onChange={(e) =>
+                            editDraft({ callBudget: e.target.value })
+                          }
+                        />
+                        <p className="field-help">
+                          {t(
+                            'Plafond cumulé pour le projet, distinct de la deadline. Les limites de jetons restent applicables.',
+                          )}
+                        </p>
                         <label htmlFor="provider">
                           {t('Mode de génération')}
                         </label>
@@ -734,7 +766,7 @@ export default function Home() {
                 <div className="launch-bottom">
                   <p>
                     <Clock3 size={15} />
-                    {t('Traitement : 2 h maximum')}
+                    {t('Traitement adapté au délai')}
                   </p>
                   <Button
                     type="submit"
@@ -821,9 +853,13 @@ export default function Home() {
                     <Square size={14} />
                     {t('Arrêter')}
                   </Button>
-                ) : ['failed', 'cancelled', 'interrupted'].includes(
+                ) : ['failed', 'cancelled', 'interrupted', 'paused'].includes(
                     active.status,
-                  ) ? (
+                  ) ||
+                  (active.status === 'completed' &&
+                    active.contributions?.some(
+                      (c) => c.status === 'queued',
+                    )) ? (
                   <Button onClick={() => action('resume')}>
                     <Play size={14} />
                     {t('Reprendre')}
@@ -841,6 +877,14 @@ export default function Home() {
               </div>
             </div>
             <RunProgress mission={active} />
+            <ScheduleSummary mission={active} />
+            {active.trial && (
+              <output className="control-notice">
+                {t(
+                  'Une version d’essai est en cours. La version contrôlée précédente reste disponible au téléchargement.',
+                )}
+              </output>
+            )}
             <div className="metrics">
               <div>
                 <span>{t('Statut')}</span>
@@ -883,6 +927,9 @@ export default function Home() {
             <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
               <TabsList variant="line" className="mission-tabs">
                 <TabsTrigger value="overview">{t('Synthèse')}</TabsTrigger>
+                {active.workflowVersion === 2 && (
+                  <TabsTrigger value="control">{t('Pilotage')}</TabsTrigger>
+                )}
                 <TabsTrigger value="project">{t('Résultats')}</TabsTrigger>
                 <TabsTrigger value="tests">
                   {t(webProject ? 'Tests' : 'Vérifications')}
@@ -891,6 +938,13 @@ export default function Home() {
                   {t('Dossier final')}
                 </TabsTrigger>
               </TabsList>
+              <TabsContent value="control">
+                <AdaptiveWorkspace
+                  key={active.id}
+                  mission={active}
+                  onChange={() => refresh(active.id)}
+                />
+              </TabsContent>
               <TabsContent value="overview">
                 <div className="overview-grid">
                   <section className="panel">
@@ -1025,10 +1079,16 @@ export default function Home() {
                     <p className="requirement" key={r.id}>
                       <span>{t('Critère')}</span>
                       {r.label}
-                      {r.weight !== null ? ' · ' + r.weight + ' %' : ''}
+                      {r.weight !== null
+                        ? ' · ' + t('Poids') + ' ' + r.weight
+                        : ''}
                       <small>
-                        {r.verified ? t('Source vérifiée') : t('À confirmer')} ·{' '}
-                        {r.sourceId}
+                        {r.origin === 'internal'
+                          ? t('Grille interne')
+                          : r.verified
+                            ? t('Source vérifiée')
+                            : t('À confirmer')}
+                        {r.sourceId ? ' · ' + r.sourceId : ''}
                       </small>
                     </p>
                   ))}

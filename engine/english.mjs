@@ -1,4 +1,28 @@
 const messages = {
+  'Pertinence pour le sujet et les utilisateurs visés':
+    'Relevance to the assignment and intended user',
+  'Justesse, faisabilité et résultat utilisable':
+    'Correctness, feasibility and usable core result',
+  'Preuves, hypothèses explicites et valeur démontrée':
+    'Evidence, explicit assumptions and demonstrated value',
+  'Clarté de la présentation et livrables utilisables':
+    'Clear presentation and usable deliverables',
+  'L’échéance du projet est atteinte. Les livrables enregistrés restent disponibles.':
+    'The project deadline has been reached. Saved deliverables remain available.',
+  'Le jalon est atteint. Reprenez dans la limite de l’échéance initiale.':
+    'Milestone time reached. Resume to continue within the original deadline.',
+  'L’échéance doit se situer dans les 30 prochains jours.':
+    'Deadline must be within the next 30 days.',
+  'Le budget doit être compris entre 8 et 72 appels.':
+    'Generation budget must be between 8 and 72 calls.',
+  'Modifiez l’échéance entre deux exécutions.':
+    'Change the deadline between runs.',
+  'Aucune version contrôlée n’est encore disponible.':
+    'No verified version is available yet.',
+  'Le projet a déjà reçu 40 contributions.':
+    'This project already contains 40 contributions.',
+  'Saisissez un type et une contribution de 8 000 caractères maximum.':
+    'Provide a contribution type and up to 8,000 characters.',
   'La limite de 30 minutes pour cet appel a été atteinte. Les livrables enregistrés sont conservés.':
     'The 30-minute limit for this call was reached. Saved deliverables are preserved.',
   'La génération Codex a échoué. Consultez le diagnostic de cet appel.':
@@ -58,6 +82,11 @@ export function englishMessage(text) {
   if (messages[text]) return messages[text];
   const patterns = [
     [
+      /^Le temps alloué à cet appel \((\d+) s\) est écoulé\. Les livrables enregistrés sont conservés\.$/,
+      (m) =>
+        `The time allocated to this call (${m[1]} s) has elapsed. Saved deliverables are preserved.`,
+    ],
+    [
       /^(\d+) source\(s\) disponible\(s\)\.$/,
       (m) => `${m[1]} source(s) available.`,
     ],
@@ -85,4 +114,10 @@ export function englishMessage(text) {
     if (match) return replacement(match);
   }
   return text;
+}
+const french = Object.fromEntries(
+  Object.entries(messages).map(([fr, en]) => [en, fr]),
+);
+export function frenchMessage(text) {
+  return french[text] || text;
 }

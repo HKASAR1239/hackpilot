@@ -11,6 +11,8 @@ import { resolve, join, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { zipSync, strToU8 } from 'fflate';
 import { Store } from './store.mjs';
+import { addContribution } from './contributions.mjs';
+import { reviseDeadline } from './schedule.mjs';
 import { Runner } from './runner.mjs';
 import { capabilities, generationSettings } from './provider.mjs';
 import { Documents, MAX_FILE_BYTES, documentError } from './documents.mjs';
@@ -194,7 +196,7 @@ export async function createApp({
       if (path === '/api/health') {
         reply(res, 200, {
           ok: true,
-          version: '0.0.6',
+          version: '0.0.7',
           providers: await capabilities(),
           generation: generationSettings(),
           active: runner.running.size,
@@ -225,6 +227,9 @@ export async function createApp({
           url: raw.url,
           provider: raw.provider,
           hours: raw.hours,
+          workflowVersion: raw.provider === 'demo' ? 1 : 2,
+          deadlineAt: raw.deadlineAt,
+          callBudget: raw.callBudget,
           locale: raw.locale || 'fr',
           documents: await documents.resolve(raw.documentIds),
         };
@@ -251,7 +256,7 @@ export async function createApp({
         if (
           !['auto', 'codex', 'demo'].includes(input.provider) ||
           !Number.isFinite(input.hours) ||
-          input.hours < 1 ||
+          input.hours < 0.5 ||
           input.hours > 720
         )
           throw Object.assign(new Error('Moteur ou durée invalide.'), {
@@ -267,13 +272,32 @@ export async function createApp({
         return;
       }
       const match = path.match(
-        /^\/api\/missions\/([a-f0-9-]{36})(?:\/(resume|cancel|file|download|export|screenshot))?$/,
+        /^\/api\/missions\/([a-f0-9-]{36})(?:\/(resume|cancel|file|download|export|verified-export|screenshot|contributions|schedule))?$/,
       );
       if (match) {
         const m = store.get(match[1]),
           action = match[2];
         if (!action && req.method === 'GET') {
           reply(res, 200, m);
+          return;
+        }
+        if (action === 'contributions' && req.method === 'POST') {
+          const contribution = addContribution(m, await body());
+          await store.save(m);
+          reply(res, 201, contribution);
+          return;
+        }
+        if (action === 'schedule' && req.method === 'POST') {
+          if (runner.running.has(m.id))
+            throw Object.assign(
+              new Error('Change the deadline between runs.'),
+              { status: 409 },
+            );
+          const raw = await body();
+          reviseDeadline(m, raw.deadlineAt);
+          if (m.status === 'expired') m.status = 'paused';
+          await store.save(m);
+          reply(res, 200, m.schedule);
           return;
         }
         if (action === 'resume' && req.method === 'POST') {
@@ -324,12 +348,62 @@ export async function createApp({
           res.end(data);
           return;
         }
-        if (action === 'export' && req.method === 'GET') {
+        if (
+          ['export', 'verified-export'].includes(action) &&
+          req.method === 'GET'
+        ) {
           const files = {};
-          for (const f of m.files)
-            files[f] = new Uint8Array(
-              await safeRead(join(store.dir(m.id), 'project'), f),
+          const requestedVersion = url.searchParams.get('version');
+          const version =
+            action === 'verified-export'
+              ? requestedVersion
+                ? m.verifiedVersions?.find((v) => v.id === requestedVersion)
+                : m.lastVerified
+              : null;
+          if (action === 'verified-export' && !version)
+            throw Object.assign(
+              new Error('No verified version is available yet.'),
+              { status: 404 },
             );
+          for (const f of version?.files || m.files)
+            files[f] = new Uint8Array(
+              await safeRead(
+                version
+                  ? join(store.dir(m.id), 'versions', version.id, 'files')
+                  : join(store.dir(m.id), 'project'),
+                f,
+              ),
+            );
+          if (version) {
+            files['hackpilot/version.json'] = new Uint8Array(
+              await safeRead(
+                join(store.dir(m.id), 'versions', version.id),
+                'version.json',
+              ),
+            );
+            res.writeHead(200, {
+              'Content-Type': 'application/zip',
+              'Content-Disposition':
+                'attachment; filename="hackpilot-verified-' +
+                version.id.slice(0, 8) +
+                '.zip"',
+            });
+            res.end(zipSync(files));
+            return;
+          }
+          for (const [key, value] of Object.entries({
+            rubric: m.rubric,
+            selection: m.selection,
+            jury: version ? version.jury : m.jury,
+            schedule: m.schedule,
+            contributions: m.contributions,
+            version,
+          })) {
+            if (value)
+              files['hackpilot/' + key + '.json'] = strToU8(
+                JSON.stringify(value, null, 2),
+              );
+          }
           files['hackpilot/submission.md'] = strToU8(
             m.submission ||
               'Mission incomplète ; voir les résultats des tests.',

@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, rename, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { englishMessage } from './english.mjs';
 import { randomUUID } from 'node:crypto';
+import { createSchedule } from './schedule.mjs';
 export class Store {
   constructor(root) {
     this.root = root;
@@ -71,6 +72,13 @@ export class Store {
       files: [],
       repairs: 0,
       usage: { input: 0, output: 0, calls: 0 },
+      ...(input.workflowVersion === 2
+        ? {
+            workflowVersion: 2,
+            schedule: createSchedule(input),
+            contributions: [],
+          }
+        : {}),
     };
     this.items.set(m.id, m);
     await this.save(m);

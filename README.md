@@ -1,6 +1,6 @@
 # HackPilot
 
-**v0.0.6** · first project using Astra :)
+**v0.0.7** · first project using Astra :)
 
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
@@ -8,13 +8,16 @@ HackPilot is a local workspace that reads an assignment, chooses an approach, pr
 
 [Get started](#quick-start) · [User guide](docs/USER_GUIDE.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
 
-![HackPilot's dark workspace with a sample case study, document import, and delivery workflow](docs/images/workspace-en.png)
+![HackPilot's control room with a judging rubric, project deadline, checked export and team contributions](docs/images/workspace-en.png)
 
-_English interface. Switch between English and French from the top bar._
+_English interface, showing a real run on a fictional equipment-sharing brief. Switch between English and French from the top bar._
 
 ## What it does
 
 - **Read the assignment.** Paste a brief, provide a public event URL, or import PDF, PowerPoint, and image files. Review extracted text and page references before starting.
+- **Use the judging rubric.** Extract cited criteria and explicit weights, compare approaches against them, and assess every extracted criterion in a separate review that does not receive the producer’s rationale or previous scores. Missing official rubrics are replaced by clearly labeled internal criteria.
+- **Work to a deadline.** Set 30 minutes to 30 days and a separate model-call budget. Resuming preserves the deadline and consumed budget. Checked file versions remain downloadable.
+- **Contribute during a run.** Add ideas, observations, corrections, or constraints in the control room. Author names are hidden during evaluation. Supported changes are tried after the current result passes its checks, then compared in randomized A/B order before integration.
 - **Choose useful deliverables.** Required formats take priority. HackPilot can propose a website, simulator, or another addition when it helps answer the assignment and fits the available time.
 - **Produce editable files.** Download reports, PowerPoint decks, Excel models with formulas, and web prototype source code.
 - **Build from a shared reference.** Compare alternatives, trace facts to source quotations, label assumptions, evaluate common calculations, define executable input-change checks for spreadsheets, and define acceptance criteria before production. A separate capability review checks that the criteria can be met by the supported formats.
@@ -60,23 +63,26 @@ A project can combine these formats. A website is selected when the assignment r
 ## How a run works
 
 ```text
-Assignment → Sources → Plan → Shared reference → Saved deliverables → Review & repairs → Export
+Sources → Frozen rubric → Approach → Shared reference → Checked deliverables
+   → Content review + separate jury assessment → Optional contribution trials → Export
 ```
 
 1. Read the brief, uploaded documents, and available public rules or resource pages.
-2. Identify required outputs and constraints. Use a focused approach for a case study, or compare up to three concepts when the topic leaves room for a choice.
+2. Preserve the source-backed judging rubric and identify required outputs and constraints. Use a focused approach for a case study, or compare up to three concepts when the topic leaves room for a choice.
 3. Challenge the approach and create a shared reference: supported facts, assumptions, independently evaluated calculations, failure modes, and criteria linked to requirements.
 4. Produce and check one deliverable at a time. Prepare calculation models before the reports and slides that use them. Save each checked result so an interruption does not discard it.
-5. Review the complete set against every acceptance criterion. Record evidence, identify inconsistencies, and repair affected deliverables. Unresolved required checks prevent completion.
-6. Export files, sources, reference, review, execution diagnostics, and remaining limitations.
+5. Review the complete set against internal acceptance checks, then separately assess every judging criterion using exported-file evidence. The jury review does not receive the producer’s rationale or previous assessments. Targeted repairs address concrete defects; unresolved required checks prevent completion.
+6. Evaluate queued contributions at a checkpoint. When time and budget permit, build a trial version, run the checks and compare both outputs without author names or chronological labels. Promote a supported improvement; otherwise restore the baseline. Export files, sources, rubric, reviews, decisions and diagnostics.
 
-The **available time** field helps scope the project. A generation attempt has its own two-hour limit. One project runs at a time; interrupted projects remain on disk and can be resumed within their remaining budgets.
+For new projects, **available time** sets a persistent deadline and guides scope. A session ends at that deadline or after two hours, whichever comes first. Model calls receive smaller time allowances according to the work remaining, with a reserve for checks. Longer projects can resume through milestones; this release does not automatically run background field studies or schedule weeks of unattended work. Old projects retain their original execution policy. One project runs at a time.
+
+The **Control room** shows rubric evidence, contributions, milestones and the deadline. **Checked version** downloads an immutable snapshot; completeness refers to the included deliverables and recorded checks, not approval by an organizer. See [adaptive workflow details](docs/ADAPTIVE_WORKFLOW.md) for limits and recovery behavior.
 
 ## Local storage and generation
 
 Projects are stored in `.hackpilot/`, which is excluded from Git. The current assignment draft, including extracted document text, is also saved in browser local storage until you clear it or remove site data. Document extraction and OCR run locally. During Codex generation, the brief, extracted source text, and content being generated or reviewed are sent through your configured Codex connection. Your account's usage limits apply.
 
-Generation uses the model configured in Codex, with **`xhigh` for strategy and review** and **`high` for deliverable production and repairs**. Set `HACKPILOT_MODEL`, `HACKPILOT_REASONING_EFFORT`, and `HACKPILOT_PRODUCTION_EFFORT` to override these choices. The selected model must support the requested effort. Each attempt records its requested settings in the activity log; existing results are not regenerated automatically.
+Generation uses the model configured in Codex, with **`xhigh` for strategy and review** and **`high` for deliverable production and repairs**. For new projects with deadlines of an hour or less, requested xhigh/max calls use high effort to preserve production and verification time. The requested configuration and actual per-call effort are recorded. Set `HACKPILOT_MODEL`, `HACKPILOT_REASONING_EFFORT`, and `HACKPILOT_PRODUCTION_EFFORT` to override these choices. The selected model must support the requested effort. Each attempt records its requested settings in the activity log; existing results are not regenerated automatically.
 
 The app binds to loopback. Generated web previews use a separate local port and a content policy that blocks external connections. Generated programs are not run as shell commands; document exports are rendered from validated structured data.
 
@@ -86,13 +92,16 @@ See the [user guide](docs/USER_GUIDE.md) for upload limits, data retention, gene
 
 The workflow is designed to improve completeness, consistency, and recovery. Those mechanisms do not establish that it beats a good single prompt on every assignment.
 
-An opt-in evaluation uses public synthetic briefs for a capacity-constrained shuttle, a museum arrival experience, and an equipment-lending prototype. Both arms receive the same brief, sources, model, fixed plan, output contracts, and export checks. The baseline gets a strong one-response prompt with a self-check instruction. The pipeline receives additional calls; the report includes time, tokens, repairs, mechanical checks, and blinded outputs for content assessment. This comparison starts after planning and does not evaluate concept selection.
+An opt-in evaluation uses public synthetic briefs for an open-ended equipment-sharing question, a capacity-constrained shuttle, a museum arrival experience with weighted criteria, and an equipment-lending prototype. Both arms receive the same brief, sources, model, fixed plan, output contracts, and export checks. The baseline gets a strong one-response prompt with a self-check instruction. The pipeline receives additional calls; the report includes time, tokens, repairs, mechanical checks, and blinded outputs for content assessment. This comparison starts after planning and does not evaluate concept selection.
 
 ```sh
-HACKPILOT_MODEL=gpt-6-astra npm run eval:quality -- --live --case shuttle
+HACKPILOT_MODEL=gpt-6-astra npm run eval:quality -- --live --case vague,museum,equipment --minutes 30
 ```
 
-Omit `--case` to run all three. This uses your Codex account. Results stay in the ignored `validation/` directory. See the [evaluation protocol](docs/EVALUATION.md) for interpretation and limitations.
+Omit `--case` to run all four. This uses your Codex account. Results stay in the ignored `validation/` directory. See the [evaluation protocol](docs/EVALUATION.md) for interpretation and limitations.
+
+The [v0.0.7 development results](docs/evaluations/v0.0.7/README.md) retain failed attempts and reruns. On the short open-ended brief, the extra pipeline calls did not establish a clear quality advantage over the strong single prompt.
+The museum pipeline recovered a slide export failure, while the real-model web attempts timed out without a usable prototype. Reliable delivery within a short deadline remains a limitation.
 
 ## Current scope
 
@@ -117,9 +126,9 @@ npm test
 npm run build
 ```
 
-CI also runs the isolated workspace recovery and quality-evidence browser checks after the build.
+CI also runs isolated workspace recovery, quality-evidence and adaptive-control browser checks after the build.
 
-With the app running, `npm run test:e2e` exercises the demo workflow without model calls. Tests that use a real Codex account are separate and opt-in. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+After building, `npm run test:e2e` exercises the demo workflow without model calls using temporary storage and randomly allocated local ports. Tests that use a real Codex account are separate and opt-in. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 | Directory                     | Purpose                                                                          |
 | ----------------------------- | -------------------------------------------------------------------------------- |

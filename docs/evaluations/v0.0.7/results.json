@@ -1,0 +1,780 @@
+{
+  "evaluationDate": "2026-09-06",
+  "note": "Development runs, not a controlled release benchmark. Source versions and effort policies differ across batches. Failed attempts are retained; interrupted usage may be underreported. No independent qualitative superiority claim. Calls list the actual requested effort; missing historical timeout metadata stays null.",
+  "batches": [
+    {
+      "batch": "adaptive-live-30min",
+      "at": "2026-09-05T22:00:11.027Z",
+      "requestedConfiguration": {
+        "model": "gpt-6-astra",
+        "reasoningEffort": "xhigh",
+        "productionEffort": "high"
+      },
+      "deadlineMinutes": 30,
+      "engineSourceHash": null,
+      "cases": [
+        {
+          "case": "vague",
+          "arms": [
+            {
+              "arm": "baseline",
+              "status": "completed",
+              "durationSeconds": 83,
+              "usage": {
+                "input": 18447,
+                "output": 1753,
+                "calls": 1
+              },
+              "repairs": 0,
+              "error": null,
+              "mechanicalPassed": true,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "one-prompt-baseline",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 82,
+                  "timeoutSeconds": null
+                }
+              ]
+            },
+            {
+              "arm": "pipeline",
+              "status": "completed",
+              "durationSeconds": 345,
+              "usage": {
+                "input": 117038,
+                "output": 8472,
+                "calls": 6
+              },
+              "repairs": 0,
+              "error": null,
+              "mechanicalPassed": true,
+              "externalChecks": [],
+              "checkedFiles": ["memo.md", "memo.pdf"],
+              "juryCoverage": [
+                {
+                  "criterionId": "internal-relevance",
+                  "status": "strong"
+                },
+                {
+                  "criterionId": "internal-correctness",
+                  "status": "strong"
+                },
+                {
+                  "criterionId": "internal-evidence",
+                  "status": "strong"
+                },
+                {
+                  "criterionId": "internal-communication",
+                  "status": "strong"
+                }
+              ],
+              "calls": [
+                {
+                  "purpose": "rubric",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 10,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "design",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 117,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "contract-review",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 27,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "build:memo",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 42,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "review",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 67,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "jury",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 80,
+                  "timeoutSeconds": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "case": "museum",
+          "arms": [
+            {
+              "arm": "baseline",
+              "status": "failed",
+              "durationSeconds": 223,
+              "usage": {
+                "input": 18570,
+                "output": 5184,
+                "calls": 1
+              },
+              "repairs": 0,
+              "error": "Le texte dépasse une slide. Réduis la densité et place les détails dans les notes.",
+              "mechanicalPassed": null,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "one-prompt-baseline",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 223,
+                  "timeoutSeconds": null
+                }
+              ]
+            },
+            {
+              "arm": "pipeline",
+              "status": "failed",
+              "durationSeconds": 13,
+              "usage": {
+                "input": 17529,
+                "output": 257,
+                "calls": 1
+              },
+              "repairs": 0,
+              "error": "Unsupported or duplicate judging criterion: visitor_experience",
+              "mechanicalPassed": null,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "rubric",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 13,
+                  "timeoutSeconds": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "case": "equipment",
+          "arms": [
+            {
+              "arm": "baseline",
+              "status": "failed",
+              "durationSeconds": 1440,
+              "usage": {
+                "input": 0,
+                "output": 0,
+                "calls": 1
+              },
+              "repairs": 0,
+              "error": "La limite de 30 minutes pour cet appel a été atteinte. Les livrables enregistrés sont conservés.",
+              "mechanicalPassed": null,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "one-prompt-baseline",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "failed",
+                  "durationSeconds": 1440,
+                  "timeoutSeconds": null
+                }
+              ]
+            },
+            {
+              "arm": "pipeline",
+              "status": "failed",
+              "durationSeconds": 629,
+              "usage": {
+                "input": 57221,
+                "output": 6439,
+                "calls": 4
+              },
+              "repairs": 0,
+              "error": "The 30-minute limit for this call was reached. Saved deliverables are preserved.",
+              "mechanicalPassed": null,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "rubric",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 10,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "design",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 177,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "contract-review",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 36,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "build:app",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "failed",
+                  "durationSeconds": 406,
+                  "timeoutSeconds": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "adaptive-recheck-museum",
+      "at": "2026-09-05T22:13:13.107Z",
+      "requestedConfiguration": {
+        "model": "gpt-6-astra",
+        "reasoningEffort": "xhigh",
+        "productionEffort": "high"
+      },
+      "deadlineMinutes": 30,
+      "engineSourceHash": "7e8d4bb7b0e90eab5fa32ca29a3d934271ed1b7b0a5f4b6b7bea73b86b47b810",
+      "cases": [
+        {
+          "case": "museum",
+          "arms": [
+            {
+              "arm": "baseline",
+              "status": "failed",
+              "durationSeconds": 249,
+              "usage": {
+                "input": 18634,
+                "output": 5850,
+                "calls": 1
+              },
+              "repairs": 0,
+              "error": "Le texte dépasse une slide. Réduis la densité et place les détails dans les notes.",
+              "mechanicalPassed": null,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "one-prompt-baseline",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 248,
+                  "timeoutSeconds": null
+                }
+              ]
+            },
+            {
+              "arm": "pipeline",
+              "status": "failed",
+              "durationSeconds": 216,
+              "usage": {
+                "input": 17529,
+                "output": 250,
+                "calls": 2
+              },
+              "repairs": 0,
+              "error": "The 30-minute limit for this call was reached. Saved deliverables are preserved.",
+              "mechanicalPassed": null,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "rubric",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 12,
+                  "timeoutSeconds": null
+                },
+                {
+                  "purpose": "design",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "failed",
+                  "durationSeconds": 204,
+                  "timeoutSeconds": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "adaptive-final-30min",
+      "at": "2026-09-05T22:28:00.538Z",
+      "requestedConfiguration": {
+        "model": "gpt-6-astra",
+        "reasoningEffort": "xhigh",
+        "productionEffort": "high"
+      },
+      "deadlineMinutes": 30,
+      "engineSourceHash": "021b015d73c6442f0001562eb2fa34c7b6f6129e161788003c31e5008afbdac6",
+      "cases": [
+        {
+          "case": "vague",
+          "arms": [
+            {
+              "arm": "baseline",
+              "status": "completed",
+              "durationSeconds": 97,
+              "usage": {
+                "input": 18509,
+                "output": 2262,
+                "calls": 1
+              },
+              "repairs": 0,
+              "error": null,
+              "mechanicalPassed": true,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "one-prompt-baseline",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 96,
+                  "timeoutSeconds": 1440
+                }
+              ]
+            },
+            {
+              "arm": "pipeline",
+              "status": "completed",
+              "durationSeconds": 520,
+              "usage": {
+                "input": 257697,
+                "output": 12679,
+                "calls": 13
+              },
+              "repairs": 0,
+              "error": null,
+              "mechanicalPassed": true,
+              "externalChecks": [],
+              "checkedFiles": ["memo.md", "memo.pdf"],
+              "juryCoverage": [
+                {
+                  "criterionId": "internal-relevance",
+                  "status": "strong"
+                },
+                {
+                  "criterionId": "internal-correctness",
+                  "status": "strong"
+                },
+                {
+                  "criterionId": "internal-evidence",
+                  "status": "strong"
+                },
+                {
+                  "criterionId": "internal-communication",
+                  "status": "strong"
+                }
+              ],
+              "calls": [
+                {
+                  "purpose": "rubric",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 8,
+                  "timeoutSeconds": 180
+                },
+                {
+                  "purpose": "design",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 85,
+                  "timeoutSeconds": 501
+                },
+                {
+                  "purpose": "contract-review",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 15,
+                  "timeoutSeconds": 240
+                },
+                {
+                  "purpose": "build:memo",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 36,
+                  "timeoutSeconds": 666
+                },
+                {
+                  "purpose": "review",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 37,
+                  "timeoutSeconds": 827
+                },
+                {
+                  "purpose": "jury",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 39,
+                  "timeoutSeconds": 809
+                },
+                {
+                  "purpose": "contribution",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 30,
+                  "timeoutSeconds": 240
+                },
+                {
+                  "purpose": "design",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 84,
+                  "timeoutSeconds": 416
+                },
+                {
+                  "purpose": "contract-review",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 25,
+                  "timeoutSeconds": 221
+                },
+                {
+                  "purpose": "repair:memo",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 38,
+                  "timeoutSeconds": 540
+                },
+                {
+                  "purpose": "review",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 41,
+                  "timeoutSeconds": 701
+                },
+                {
+                  "purpose": "jury",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 42,
+                  "timeoutSeconds": 680
+                },
+                {
+                  "purpose": "trial-compare",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 37,
+                  "timeoutSeconds": 659
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "case": "museum",
+          "arms": [
+            {
+              "arm": "baseline",
+              "status": "failed",
+              "durationSeconds": 284,
+              "usage": {
+                "input": 18640,
+                "output": 7081,
+                "calls": 1
+              },
+              "repairs": 0,
+              "error": "Le texte dépasse une slide. Réduis la densité et place les détails dans les notes.",
+              "mechanicalPassed": null,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "one-prompt-baseline",
+                  "model": "gpt-6-astra",
+                  "effort": "xhigh",
+                  "status": "completed",
+                  "durationSeconds": 284,
+                  "timeoutSeconds": 1440
+                }
+              ]
+            },
+            {
+              "arm": "pipeline",
+              "status": "completed",
+              "durationSeconds": 958,
+              "usage": {
+                "input": 330001,
+                "output": 26557,
+                "calls": 14
+              },
+              "repairs": 2,
+              "error": null,
+              "mechanicalPassed": true,
+              "externalChecks": [],
+              "checkedFiles": [
+                "memo.md",
+                "memo.pdf",
+                "pitch.md",
+                "pitch.pdf",
+                "pitch.pptx"
+              ],
+              "juryCoverage": [
+                {
+                  "criterionId": "visitor_experience",
+                  "status": "strong"
+                },
+                {
+                  "criterionId": "operational_feasibility",
+                  "status": "partial"
+                },
+                {
+                  "criterionId": "clarity_of_evidence",
+                  "status": "strong"
+                }
+              ],
+              "calls": [
+                {
+                  "purpose": "rubric",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 9,
+                  "timeoutSeconds": 180
+                },
+                {
+                  "purpose": "design",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 123,
+                  "timeoutSeconds": 501
+                },
+                {
+                  "purpose": "contract-review",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 14,
+                  "timeoutSeconds": 240
+                },
+                {
+                  "purpose": "build:memo",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 97,
+                  "timeoutSeconds": 431
+                },
+                {
+                  "purpose": "build:pitch",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 58,
+                  "timeoutSeconds": 598
+                },
+                {
+                  "purpose": "repair:pitch",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 60,
+                  "timeoutSeconds": 568
+                },
+                {
+                  "purpose": "review",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 51,
+                  "timeoutSeconds": 718
+                },
+                {
+                  "purpose": "jury",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 55,
+                  "timeoutSeconds": 693
+                },
+                {
+                  "purpose": "contribution",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 44,
+                  "timeoutSeconds": 194
+                },
+                {
+                  "purpose": "design",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 161,
+                  "timeoutSeconds": 324
+                },
+                {
+                  "purpose": "contract-review",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 21,
+                  "timeoutSeconds": 153
+                },
+                {
+                  "purpose": "repair:memo",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 97,
+                  "timeoutSeconds": 248
+                },
+                {
+                  "purpose": "repair:pitch",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 83,
+                  "timeoutSeconds": 327
+                },
+                {
+                  "purpose": "repair:pitch",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 82,
+                  "timeoutSeconds": 300
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "adaptive-final-equipment",
+      "at": "2026-09-05T22:46:50.392Z",
+      "requestedConfiguration": {
+        "model": "gpt-6-astra",
+        "reasoningEffort": "xhigh",
+        "productionEffort": "high"
+      },
+      "deadlineMinutes": 30,
+      "engineSourceHash": "2080ed873a98ad6be8788b50b5155ce256c8b663a7ea8d997cb1fa7634316732",
+      "cases": [
+        {
+          "case": "equipment",
+          "arms": [
+            {
+              "arm": "pipeline",
+              "status": "failed",
+              "durationSeconds": 784,
+              "usage": {
+                "input": 57800,
+                "output": 3275,
+                "calls": 4
+              },
+              "repairs": 0,
+              "error": "The time allocated to this call (657 s) has elapsed. Saved deliverables are preserved.",
+              "mechanicalPassed": null,
+              "externalChecks": [],
+              "checkedFiles": [],
+              "juryCoverage": [],
+              "calls": [
+                {
+                  "purpose": "rubric",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 7,
+                  "timeoutSeconds": 180
+                },
+                {
+                  "purpose": "design",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 105,
+                  "timeoutSeconds": 501
+                },
+                {
+                  "purpose": "contract-review",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "completed",
+                  "durationSeconds": 14,
+                  "timeoutSeconds": 240
+                },
+                {
+                  "purpose": "build:app",
+                  "model": "gpt-6-astra",
+                  "effort": "high",
+                  "status": "failed",
+                  "durationSeconds": 657,
+                  "timeoutSeconds": 657
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

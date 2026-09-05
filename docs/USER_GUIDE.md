@@ -67,6 +67,14 @@ The dependency audit recorded on September 5, 2026 reported two high-severity en
 
 Run `npm audit` against your checkout to see the current advisory status. The recorded result should not be interpreted as a clean dependency audit.
 
+## Contributions and judging
+
+New projects have a **Control room** tab with the frozen rubric, a separate jury assessment, a contribution form and milestone history. Ideas, observations, factual corrections and constraints can be submitted during a run. Draft contributions survive reload. The local server stores them immediately and evaluates up to three queued items after a checked first version exists. Items arriving after that checkpoint remain queued; resume to assess them.
+
+Names are hidden from the proposal evaluator. Trials retain the original official rubric and browser scenarios. A shared-reference change regenerates all affected outputs. Mechanical checks and content review must pass before an A/B comparison of the actual outputs; ties and uncertainty retain the baseline. Rejected or failed trials keep their reasoning in the contribution history. Contributions needing different output formats or a replacement plan are deferred in this release.
+
+This is collaboration within the local workspace, without hosted accounts or remote team synchronization. Observation notes are reported evidence, not independently verified interviews. The same model can still share biases across separate calls. The rubric check enforces coverage of all extracted criteria; source interpretation and content judgments remain fallible.
+
 ## Data and execution
 
 - Working files live in `.hackpilot/<mission-id>/`. The directory is ignored by Git.
@@ -81,18 +89,23 @@ Do not put credentials in a brief. Project exports include source material and s
 
 ## Budgets and recovery
 
-| Limit                                 | Scope                              |
-| ------------------------------------- | ---------------------------------- |
-| One active project                    | Per server                         |
-| Two hours                             | Per execution attempt              |
-| Thirty minutes                        | Per model call, within the attempt |
-| Twenty-four model calls               | Per project                        |
-| 600,000 input / 180,000 output tokens | Per project, checked between calls |
-| Two repairs                           | Per project                        |
+| Limit                                                     | Scope                                                               |
+| --------------------------------------------------------- | ------------------------------------------------------------------- |
+| One active project                                        | Per server                                                          |
+| 30 minutes to 30 days                                     | Persistent deadline for new projects                                |
+| Two hours                                                 | Maximum duration of a session, within the deadline                  |
+| Up to thirty minutes                                      | Per model call; shorter allowances preserve time for remaining work |
+| 24 model calls by default (8–72 configurable at creation) | Per project                                                         |
+| 600,000 input / 180,000 output tokens                     | Per project, checked between calls                                  |
+| Two repairs and up to two contribution trials             | Per project                                                         |
 
-An individual call may cross a token threshold before the next check. Token limits are not a monetary cap; Codex account billing and usage limits still apply. The assignment's **available time** field guides project scope and does not change the engine's two-hour attempt limit. The overall deadline includes all generation, verification, and repair steps; two hours is not added for each step.
+For new projects, **available time** sets the actual deadline. A restart, pause or resume does not extend it or reset usage. Time is reserved for verification; optional proposals are deferred when their estimated cost would consume the reserve. Estimates are imperfect and a hard deadline can still interrupt a step. Checked results remain available through **Checked version**. To extend a deadline deliberately, use **Control room → Milestones and deadline → Change deadline** between runs. The change is recorded.
 
-You can stop an active project. After a server restart, unfinished projects are marked interrupted. Resume uses saved work and the remaining project budget; it does not reset model usage or repair limits. A saved plan and valid reference are reused. Checked deliverables are skipped, and pending targeted repairs are resumed without charging the same repair round twice. Before production, a separate model review checks the proposed criteria against the supported formats. It can clarify internally proposed criteria while retaining their IDs, source-requirement links and reference calculations; the original criteria and corrections are kept in the exported reference. Explicit unsupported requirements are reported before generation. A missing required verification blocks completion; it does not automatically spend repair rounds rewriting a file without a confirmed content defect. Results are published atomically; existing unchanged document files retain their bytes. An interrupted call itself cannot resume hidden model reasoning: only that unfinished deliverable is requested again. The new execution attempt receives a fresh two-hour deadline.
+Long projects use sessions of at most two hours. Resume starts the next session within the same deadline. This release provides resumable milestones, not a background scheduler or automated field research. Projects created before v0.0.7 retain the old two-hour-per-attempt behavior and do not receive the new rubric or contribution workflow automatically.
+
+A saved plan and reference are reused. Checked deliverables are skipped, and pending repairs retain their allowance. Unsupported explicit requirements are reported. Missing verification blocks completion without rewriting a correct file unless a defect is identified. Unchanged exported documents retain their bytes. An interrupted model call cannot resume its hidden reasoning; only unfinished work is requested again.
+
+An individual call may cross a token threshold before the next check. These are not monetary caps; your account's usage limits still apply. Reported usage can omit tokens consumed by an interrupted call.
 
 Each model call stores a redacted diagnostic under `generation/call-*.json`, including timestamps, requested effort, event counts, reported usage, provider session ID, and errors. The UI shows the latest call. Telemetry excludes item content and internal reasoning; generated response files and project content remain in local working storage. Usage is recorded when the provider reports it, so an interrupted call may have consumed unreported tokens. Local counters are not billing records.
 

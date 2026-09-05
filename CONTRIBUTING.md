@@ -27,15 +27,16 @@ npm test
 npm run build
 ```
 
-For user-facing workflow changes, start the app and run:
+For user-facing workflow changes, build the app and run the isolated checks:
 
 ```sh
 npm run test:e2e
-node scripts/test-documents-ui.mjs
 node scripts/workspace-ui.mjs
+node scripts/quality-ui.mjs
+node scripts/adaptive-ui.mjs
 ```
 
-Run the browser workflows sequentially. The workspace recovery check starts its own isolated server and uses synthetic data to test reloads during generation, draft and upload persistence, restored tabs and files, and recovery from a temporary API failure. They create synthetic projects and save results under `validation/`; the demo workflow does not call a model. Run `test:e2e` first so the validation output directory exists. Use a separate `HACKPILOT_DATA_DIR` if you want to keep test projects apart from your own work.
+Run the browser workflows sequentially. These commands start their own servers on randomly allocated ports and use temporary project storage. They cover the demo, reloads during generation, draft and upload persistence, restored tabs and files, temporary API failures, quality evidence and adaptive controls. Screenshots and summaries go under `validation/`; these checks do not call a model. The additional document-upload check, `node scripts/test-documents-ui.mjs`, requires a running app: point `HACKPILOT_URL` at a separate test instance with its own `HACKPILOT_DATA_DIR`.
 
 Real-model checks are **opt-in** and consume the configured Codex account:
 

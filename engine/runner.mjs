@@ -1,10 +1,6 @@
-import {
-  EXECUTION_LIMIT_MS,
-  MAX_CALLS,
-  MAX_INPUT,
-  MAX_OUTPUT,
-} from '../lib/execution-limits.mjs';
-import { mkdir, writeFile, rm, rename, copyFile } from 'node:fs/promises';
+import { MAX_CALLS, MAX_INPUT, MAX_OUTPUT } from '../lib/execution-limits.mjs';
+import { mkdir, writeFile, rm, rename, copyFile, cp } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import {
   verificationPlanSchema,
@@ -44,7 +40,43 @@ import {
   validateReview,
   repairTargets,
 } from './quality.mjs';
+import {
+  rubricSchema,
+  rubricPrompt,
+  freezeRubric,
+  rubricContext,
+  assertRubric,
+  selectionSchema,
+  selectionPrompt,
+  applySelection,
+  jurySchema,
+  juryPrompt,
+  validateJury,
+  fingerprint,
+} from './rubric.mjs';
+import {
+  beginAttempt,
+  callTimeBudget,
+  optionalWorkFits,
+  scheduleContext,
+  recordMilestone,
+  shortDeadline,
+} from './schedule.mjs';
+import {
+  addContribution,
+  contributionSchema,
+  contributionReviewInput,
+  contributionPrompt,
+  validateContributionDecision,
+  activeContributionContext,
+  trialComparisonSchema,
+  trialComparisonInput,
+  trialComparisonPrompt,
+  validateTrialComparison,
+} from './contributions.mjs';
 const label = (m, fr, en) => (m.input.locale === 'en' ? en : fr);
+const normalizeMissionPlan = (raw, m) =>
+  normalizePlan(m.rubric ? { ...raw, criteria: [] } : raw, m.sources);
 export class Runner {
   constructor(store, previewOrigin, options = {}) {
     this.store = store;
@@ -52,6 +84,7 @@ export class Runner {
     this.running = new Map();
     this.generate = options.generate || generate;
     this.verify = options.verify || verify;
+    this.now = options.now || Date.now;
   }
   async start(id) {
     if (this.running.size)
@@ -62,10 +95,14 @@ export class Runner {
         { status: 409 },
       );
     const m = this.store.get(id);
-    if (m.status === 'completed')
+    if (
+      m.status === 'completed' &&
+      !(m.contributions || []).some((c) => c.status === 'queued')
+    )
       throw Object.assign(new Error('Cette mission est déjà terminée.'), {
         status: 409,
       });
+    const attempt = beginAttempt(m, this.now());
     const controller = new AbortController();
     this.running.set(id, controller);
     m.status = 'running';
@@ -77,7 +114,7 @@ export class Runner {
       this.running.delete(id);
       throw error;
     }
-    void this.execute(m, controller)
+    void this.execute(m, controller, attempt)
       .catch((error) => {
         m.status = 'failed';
         m.error = 'Impossible de conserver la mission : ' + error.message;
@@ -106,13 +143,15 @@ export class Runner {
     if (signal.aborted)
       throw signal.reason || new Error('Mission interrompue.');
     if (
-      m.usage.calls >= MAX_CALLS ||
+      m.usage.calls >= (m.schedule?.callBudget || MAX_CALLS) ||
       m.usage.input >= MAX_INPUT ||
       m.usage.output >= MAX_OUTPUT
     )
       throw new Error(
         'Le budget de génération est atteint. Les résultats sont conservés.',
       );
+    const timeoutMs = callTimeBudget(m, purpose, this.now());
+    if (m.rubric) assertRubric(m.rubric);
     m.usage.calls++;
     const settings = m.generationSettings || generationSettings();
     const configuration = {
@@ -121,6 +160,12 @@ export class Runner {
         ? settings.productionEffort
         : settings.reasoningEffort,
     };
+    if (
+      shortDeadline(m) &&
+      purpose !== 'one-prompt-baseline' &&
+      ['xhigh', 'max'].includes(configuration.reasoningEffort)
+    )
+      configuration.reasoningEffort = 'high';
     m.currentCall = {
       purpose,
       reasoningEffort: configuration.reasoningEffort,
@@ -130,12 +175,13 @@ export class Runner {
     await this.store.save(m);
     try {
       const result = await this.generate({
-        prompt,
+        prompt: prompt + scheduleContext(m, this.now()),
         schema,
         dir: join(this.store.dir(m.id), 'generation'),
         signal,
         purpose,
         configuration,
+        timeoutMs,
         onUsage: (u) => {
           m.usage.input += u.input_tokens || 0;
           m.usage.output += u.output_tokens || 0;
@@ -161,6 +207,7 @@ export class Runner {
   }
   async stage(m, i, status) {
     m.stages[i].status = status;
+    if (status === 'done') recordMilestone(m, m.stages[i].name, this.now());
     await this.store.save(m);
   }
   async writeBundle(m, bundle, signal, plan = m.plan) {
@@ -264,6 +311,378 @@ export class Runner {
     if (m.design.contractReview.blockingIssues.length)
       throw new Error(m.design.contractReview.blockingIssues.join(' '));
   }
+  async prepareRubric(m, language, signal) {
+    if (m.workflowVersion !== 2) return;
+    if (!m.rubric) {
+      await this.activity(
+        m,
+        'Lecture de la grille de jugement et de ses sources.',
+        'Reading the judging rubric and its sources.',
+      );
+      m.rubric = freezeRubric(
+        await this.call(
+          m,
+          rubricPrompt(m, language),
+          rubricSchema,
+          signal,
+          'rubric',
+        ),
+        m.sources,
+        this.now(),
+      );
+      await this.store.save(m);
+    }
+    assertRubric(m.rubric);
+  }
+  async selectApproach(m, language, signal) {
+    if (!m.rubric) return;
+    m.plan.criteria = m.rubric.criteria.map((c) => ({
+      ...c,
+      verified: c.origin === 'official',
+    }));
+    const key = fingerprint(
+      m.plan.ideas.map(({ id, concept, features }) => ({
+        id,
+        concept,
+        features,
+      })),
+    );
+    if (m.selection?.ideasHash === key) return;
+    if (m.plan.ideas.length === 1) {
+      m.plan.selectedId = m.plan.ideas[0].id;
+      m.selection = {
+        selectedId: m.plan.selectedId,
+        rubricHash: m.rubric.hash,
+        options: [],
+        reason: 'Single approach; assessed during design and final judging.',
+        indicative: true,
+      };
+    } else {
+      await this.activity(
+        m,
+        'Comparaison des approches selon la grille.',
+        'Comparing approaches against the judging rubric.',
+      );
+      applySelection(
+        await this.call(
+          m,
+          selectionPrompt(m, language),
+          selectionSchema,
+          signal,
+          'selection',
+        ),
+        m,
+      );
+    }
+    m.selection.ideasHash = key;
+    await this.store.save(m);
+  }
+  async assessJury(m, language, signal) {
+    if (!m.rubric) return;
+    if (
+      m.jury?.bundleHash === fingerprint(m.bundle) &&
+      m.jury.rubricHash === m.rubric.hash &&
+      m.jury.contextHash ===
+        fingerprint({ sources: m.sources, checks: m.tests?.results })
+    )
+      return;
+    await this.activity(
+      m,
+      'Évaluation des livrables selon chaque critère du jury.',
+      'Assessing the deliverables against every judging criterion.',
+    );
+    m.jury = validateJury(
+      await this.call(m, juryPrompt(m, language), jurySchema, signal, 'jury'),
+      m,
+    );
+    await this.store.save(m);
+  }
+  async saveVerifiedVersion(m, complete = false, commitTrial = false) {
+    if (
+      m.workflowVersion !== 2 ||
+      (m.trial && !commitTrial) ||
+      (!complete && m.lastVerified?.complete)
+    )
+      return;
+    const bundle = complete
+      ? m.bundle
+      : assembleParts(
+          m.plan,
+          Object.fromEntries(
+            Object.entries(m.production?.checkpoints || {}).filter(
+              ([, p]) => p.status === 'checked',
+            ),
+          ),
+        );
+    if (!bundle.files.length && !bundle.artifacts.length) return;
+    const hash = fingerprint(bundle);
+    if (
+      m.lastVerified?.bundleHash === hash &&
+      (!complete || m.lastVerified.complete) &&
+      (m.jury?.bundleHash !== hash || m.lastVerified.jury?.at === m.jury.at)
+    )
+      return;
+    const id = randomUUID();
+    const base = join(this.store.dir(m.id), 'versions', id);
+    await mkdir(base, { recursive: true });
+    const files = [
+      ...bundle.files.map((f) => f.path),
+      ...(m.artifacts || [])
+        .filter((a) => bundle.artifacts.some((b) => b.id === a.id))
+        .flatMap((a) => a.files),
+    ];
+    for (const path of files) {
+      await mkdir(join(base, 'files', path, '..'), { recursive: true });
+      await copyFile(
+        join(this.store.dir(m.id), 'project', path),
+        join(base, 'files', path),
+      );
+    }
+    const version = {
+      id,
+      at: new Date(this.now()).toISOString(),
+      files,
+      complete,
+      bundleHash: hash,
+      checks: complete
+        ? m.tests
+        : Object.values(m.production.checkpoints)
+            .filter((p) => p.status === 'checked')
+            .map((p) => p.checks),
+      jury: m.jury?.bundleHash === hash ? m.jury : null,
+    };
+    await writeFile(
+      join(base, 'version.json'),
+      JSON.stringify({ ...version, bundle }, null, 2),
+      { mode: 0o600 },
+    );
+    m.verifiedVersions ||= [];
+    m.verifiedVersions.push(version);
+    m.lastVerified = version;
+    await this.store.save(m);
+  }
+  async restoreTrial(m, reason, requeue = false) {
+    const trial = m.trial;
+    if (!trial) return;
+    const root = this.store.dir(m.id);
+    const next = join(root, 'project-restore');
+    await rm(next, { recursive: true, force: true });
+    await cp(join(root, 'trials', trial.id, 'baseline'), next, {
+      recursive: true,
+    });
+    await rm(join(root, 'project'), { recursive: true, force: true });
+    await rename(next, join(root, 'project'));
+    for (const [key, value] of Object.entries(trial.baseline)) {
+      if (value === null) delete m[key];
+      else m[key] = structuredClone(value);
+    }
+    const contribution = m.contributions.find(
+      (c) => c.id === trial.contributionId,
+    );
+    contribution.status = requeue ? 'queued' : 'deferred';
+    contribution.result = reason;
+    contribution.trialEndedAt = new Date(this.now()).toISOString();
+    delete m.trial;
+    await this.store.save(m);
+  }
+  async trialContribution(m, contribution, language, signal) {
+    const id = randomUUID();
+    const baseline = Object.fromEntries(
+      [
+        'plan',
+        'design',
+        'production',
+        'bundle',
+        'files',
+        'artifacts',
+        'tests',
+        'jury',
+        'review',
+        'renderedArtifacts',
+        'previewUrl',
+        'submission',
+        'sources',
+        'lastVerified',
+        'verifiedVersions',
+      ].map((key) => [key, structuredClone(m[key] ?? null)]),
+    );
+    await cp(
+      join(this.store.dir(m.id), 'project'),
+      join(this.store.dir(m.id), 'trials', id, 'baseline'),
+      { recursive: true },
+    );
+    m.trial = {
+      id,
+      contributionId: contribution.id,
+      baseline,
+      startedAt: new Date(this.now()).toISOString(),
+    };
+    contribution.status = 'testing';
+    m.contributionTrials = (m.contributionTrials || 0) + 1;
+    await this.store.save(m);
+    try {
+      await this.stage(m, 3, 'pending');
+      await this.stage(m, 2, 'running');
+      await this.activity(
+        m,
+        'Essai de la contribution sur une nouvelle version.',
+        'Testing the contribution in a new version.',
+      );
+      if (['evidence', 'correction'].includes(contribution.kind))
+        m.sources.push({
+          id: 'C-' + contribution.id,
+          title: 'Team contribution (reported information)',
+          text: contribution.text,
+          url: null,
+          origin: 'team-contribution',
+        });
+      delete m.design;
+      await this.prepareDesign(m, language, signal);
+      const shared = (design) => ({
+        facts: design.facts,
+        assumptions: design.assumptions,
+        calculations: design.calculations,
+        recommendation: design.recommendation,
+      });
+      const targets =
+        fingerprint(shared(m.design)) === fingerprint(shared(baseline.design))
+          ? contribution.assessment.deliverableIds
+          : m.plan.deliverables.map((d) => d.id);
+      contribution.actualTargets = targets;
+      m.production.pendingRepairs = targets;
+      for (const target of targets)
+        m.production.repairReasons[target] = [
+          contribution.assessment.instructions,
+        ];
+      await this.store.save(m);
+      await this.buildParts(m, language, signal);
+      await this.stage(m, 2, 'done');
+      await this.stage(m, 3, 'running');
+      const tests = await this.verifyComplete(m, signal);
+      if (!tests.passed) throw new Error('The trial failed executable checks.');
+      m.review = validateReview(
+        await this.call(
+          m,
+          qualityReviewPrompt(m, language),
+          qualityReviewSchema,
+          signal,
+          'review',
+        ),
+        m,
+      );
+      if (m.review.mustFix.length) throw new Error(m.review.mustFix.join(' '));
+      await this.assessJury(m, language, signal);
+      const comparison = trialComparisonInput(
+        {
+          bundle: baseline.bundle,
+          files: baseline.files,
+          checks: baseline.tests,
+        },
+        { bundle: m.bundle, files: m.files, checks: m.tests },
+      );
+      const result = validateTrialComparison(
+        await this.call(
+          m,
+          trialComparisonPrompt(m, comparison, language),
+          trialComparisonSchema,
+          signal,
+          'trial-compare',
+        ),
+        m,
+        comparison,
+      );
+      contribution.comparison = result;
+      if (!result.promoted) {
+        await this.restoreTrial(m, result.reason);
+        return;
+      }
+      await this.saveVerifiedVersion(m, true, true);
+      contribution.status = 'integrated';
+      contribution.result = result.reason;
+      contribution.trialEndedAt = new Date(this.now()).toISOString();
+      delete m.trial;
+      await this.store.save(m);
+    } catch (error) {
+      await this.restoreTrial(m, error.message, signal.aborted);
+      if (signal.aborted) throw error;
+      await this.stage(m, 2, 'done');
+      await this.stage(m, 3, 'running');
+      await this.store.event(
+        m,
+        label(
+          m,
+          'Contribution différée ; la version précédente est restaurée.',
+          'Contribution deferred; the previous version was restored.',
+        ),
+        'warning',
+      );
+    }
+  }
+  async processContributions(m, language, signal) {
+    if (!m.rubric) return;
+    // Snapshot the queue: input arriving during these calls stays queued for the next checkpoint.
+    const queued = (m.contributions || [])
+      .filter((c) => c.status === 'queued')
+      .slice(0, 3);
+    if (queued.length) await this.stage(m, 3, 'running');
+    for (const c of queued) {
+      if (!optionalWorkFits(m, 2, 1, this.now())) {
+        c.status = 'deferred';
+        c.result = label(
+          m,
+          'Temps ou budget insuffisant avant le jalon ; version contrôlée conservée.',
+          'Insufficient time or budget before the milestone; checked version preserved.',
+        );
+        await this.store.save(m);
+        continue;
+      }
+      c.status = 'evaluating';
+      await this.store.save(m);
+      try {
+        const comparison = contributionReviewInput(m, c);
+        c.assessment = validateContributionDecision(
+          await this.call(
+            m,
+            contributionPrompt(m, comparison, language),
+            contributionSchema,
+            signal,
+            'contribution',
+          ),
+          m,
+          comparison,
+        );
+        c.result = c.assessment.reason;
+        if (c.assessment.decision === 'trial') {
+          const requiredCalls = m.plan.deliverables.length + 5;
+          if (
+            (m.contributionTrials || 0) >= 2 ||
+            !optionalWorkFits(
+              m,
+              c.assessment.estimatedMinutes,
+              requiredCalls,
+              this.now(),
+            )
+          ) {
+            c.status = 'deferred';
+            c.result += label(
+              m,
+              ' Essai différé pour conserver le temps et le budget de livraison.',
+              ' Trial deferred to preserve the delivery time and budget.',
+            );
+          } else await this.trialContribution(m, c, language, signal);
+        } else
+          c.status =
+            c.assessment.decision === 'reject' ? 'rejected' : 'deferred';
+      } catch (error) {
+        c.status = signal.aborted ? 'queued' : 'deferred';
+        c.result = error.message;
+        if (signal.aborted) throw error;
+      } finally {
+        await this.store.save(m);
+      }
+    }
+    if (queued.length) await this.stage(m, 3, 'done');
+  }
   async prepareDesign(m, language, signal) {
     if (m.design?.planFingerprint === planFingerprint(m.plan)) {
       if (!m.design.calculationChecks) {
@@ -298,7 +717,10 @@ export class Runner {
       );
       const raw = await this.call(
         m,
-        designPrompt(m, language) + feedback,
+        designPrompt(m, language) +
+          rubricContext(m) +
+          activeContributionContext(m) +
+          feedback,
         designSchema,
         signal,
         'design',
@@ -346,7 +768,8 @@ export class Runner {
           signal,
           'planning-revision',
         );
-        m.plan = normalizePlan(updated, m.sources);
+        m.plan = normalizeMissionPlan(updated, m);
+        await this.selectApproach(m, language, signal);
         m.name = m.plan.name;
         m.planRevisions = (m.planRevisions || 0) + 1;
         await this.store.save(m);
@@ -538,6 +961,7 @@ export class Runner {
         (id) => id !== d.id,
       );
       await this.store.save(m);
+      await this.saveVerifiedVersion(m);
       await this.activity(
         m,
         'Livrable enregistré et contrôlé : ' + d.title,
@@ -614,14 +1038,40 @@ export class Runner {
     );
     return m.tests;
   }
-  async execute(m, controller) {
+  async execute(m, controller, attempt = beginAttempt(m, this.now())) {
     const { signal } = controller;
     const language = m.input.locale === 'en' ? 'anglais' : 'français';
     const timer = setTimeout(
-      () => controller.abort(new Error('Limite de 2 heures atteinte.')),
-      EXECUTION_LIMIT_MS,
+      () =>
+        controller.abort(
+          Object.assign(
+            new Error(
+              m.schedule
+                ? attempt.deadline
+                  ? 'The project deadline has been reached. Saved deliverables remain available.'
+                  : 'Milestone time reached. Resume to continue within the original deadline.'
+                : 'Limite de 2 heures atteinte.',
+            ),
+            {
+              code: m.schedule
+                ? attempt.deadline
+                  ? 'deadline_reached'
+                  : 'milestone_reached'
+                : 'attempt_limit',
+            },
+          ),
+        ),
+      attempt.durationMs,
     );
     try {
+      if (m.trial)
+        await this.restoreTrial(
+          m,
+          'Interrupted trial restored; contribution queued for another checkpoint.',
+          true,
+        );
+      for (const c of m.contributions || [])
+        if (c.status === 'evaluating') c.status = 'queued';
       await mkdir(join(this.store.dir(m.id), 'generation'), {
         recursive: true,
       });
@@ -648,6 +1098,15 @@ export class Runner {
           `Modèle : ${model || 'configuration Codex'} · stratégie/relecture : ${reasoningEffort} · production : ${productionEffort}.`,
           `Model: ${model || 'Codex configuration'} · strategy/review: ${reasoningEffort} · production: ${productionEffort}.`,
         );
+        if (shortDeadline(m) && ['xhigh', 'max'].includes(reasoningEffort))
+          await this.store.event(
+            m,
+            label(
+              m,
+              'Délai court : effort high pour conserver du temps de production et de vérification.',
+              'Short deadline: high effort preserves time for production and verification.',
+            ),
+          );
       }
       await this.stage(m, 0, 'running');
       if (!m.sources.length) m.sources = await collectSources(m.input, signal);
@@ -664,23 +1123,27 @@ export class Runner {
       );
       await this.stage(m, 0, 'done');
       await this.stage(m, 1, 'running');
+      if (!demo) await this.prepareRubric(m, language, signal);
       if (!m.plan) {
-        m.plan = normalizePlan(
+        m.plan = normalizeMissionPlan(
           demo
             ? fixturePlan()
             : await this.call(
                 m,
-                planningPrompt(m, language),
+                planningPrompt(m, language) + rubricContext(m),
                 planSchema,
                 signal,
                 'planning',
               ),
-          m.sources,
+          m,
         );
         m.name = m.plan.name;
         await this.store.save(m);
       }
-      if (!demo) await this.prepareDesign(m, language, signal);
+      if (!demo) {
+        await this.selectApproach(m, language, signal);
+        await this.prepareDesign(m, language, signal);
+      }
       const idea = m.plan.ideas.find((i) => i.id === m.plan.selectedId);
       await this.store.event(
         m,
@@ -698,6 +1161,7 @@ export class Runner {
       for (;;) {
         if (signal.aborted) throw signal.reason;
         const tests = await this.verifyComplete(m, signal);
+        if (tests.passed && !demo) await this.saveVerifiedVersion(m, true);
         if (demo) {
           if (!tests.passed)
             throw new Error(
@@ -743,7 +1207,45 @@ export class Runner {
             m,
           );
           await this.store.save(m);
-          if (!m.review.mustFix.length) break;
+          if (!m.review.mustFix.length) {
+            await this.assessJury(m, language, signal);
+            await this.saveVerifiedVersion(m, true);
+            const improvement = m.jury?.improvements
+              .filter((i) => i.impact !== 'low')
+              .sort((a, b) =>
+                a.impact === b.impact
+                  ? a.estimatedMinutes - b.estimatedMinutes
+                  : a.impact === 'high'
+                    ? -1
+                    : 1,
+              )[0];
+            if (
+              improvement &&
+              !m.juryImprovementAttempted &&
+              m.contributions.length < 40 &&
+              optionalWorkFits(
+                m,
+                improvement.estimatedMinutes,
+                improvement.deliverableIds.length + 2,
+                this.now(),
+              )
+            ) {
+              m.juryImprovementAttempted = true;
+              addContribution(m, {
+                requestId: randomUUID(),
+                kind: 'idea',
+                author: 'HackPilot',
+                text: improvement.detail,
+              });
+              m.schedule?.decisions.push({
+                at: new Date(this.now()).toISOString(),
+                action: 'jury-improvement',
+                detail: improvement.detail,
+                estimatedMinutes: improvement.estimatedMinutes,
+              });
+            }
+            break;
+          }
         }
         const targets = repairTargets(m.review, m.plan);
         if (!targets.length)
@@ -776,6 +1278,7 @@ export class Runner {
         await this.stage(m, 3, 'running');
       }
       await this.stage(m, 3, 'done');
+      if (!demo) await this.processContributions(m, language, signal);
       await this.stage(m, 4, 'running');
       m.submission = this.submission(m, idea);
       if (m.design)
@@ -802,7 +1305,14 @@ export class Runner {
       m.completedAt = new Date().toISOString();
       await this.store.save(m);
     } catch (e) {
-      m.status = signal.aborted ? 'cancelled' : 'failed';
+      m.status =
+        signal.reason?.code === 'deadline_reached'
+          ? 'expired'
+          : signal.reason?.code === 'milestone_reached'
+            ? 'paused'
+            : signal.aborted
+              ? 'cancelled'
+              : 'failed';
       m.error = signal.aborted
         ? signal.reason?.message || 'Mission arrêtée.'
         : e.message;

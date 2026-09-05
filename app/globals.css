@@ -2241,3 +2241,293 @@ h3 {
   overflow-wrap: anywhere;
   margin: 8px 0;
 }
+
+.schedule-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 22px;
+  padding: 18px 22px;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-inset);
+}
+.schedule-summary > div,
+.verified-download {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.schedule-summary small {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.schedule-summary strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+.schedule-summary svg {
+  color: var(--muted-foreground);
+  flex: none;
+}
+.verified-download {
+  margin-left: auto;
+  color: var(--success);
+  font-size: 12px;
+  text-decoration: none;
+}
+.verified-download svg {
+  color: inherit;
+}
+.adaptive-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-top: 22px;
+}
+.adaptive-workspace .panel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.control-side {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.control-heading,
+.rubric-title,
+.contribution-meta,
+.contribution-submit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.control-heading h2 {
+  margin: 0;
+}
+.control-badge {
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  border-radius: 20px;
+  padding: 4px 9px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.control-intro {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 14px 0 20px;
+}
+.control-uncertainty {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  color: var(--warning);
+  font-size: 12px;
+}
+.control-uncertainty svg {
+  flex: none;
+  margin-top: 3px;
+}
+.jury-summary {
+  border-left: 2px solid var(--border-strong);
+  padding: 2px 0 2px 14px;
+  margin: 18px 0;
+}
+.jury-summary p {
+  margin: 0 0 6px;
+}
+.jury-summary small,
+.control-details small {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.rubric-item {
+  padding: 19px 0;
+  border-top: 1px solid var(--border);
+}
+.rubric-title h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rubric-title > span {
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.rubric-item > p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 10px 0;
+}
+.assessment-state {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--muted-foreground);
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 10px;
+  margin: 9px 0 2px;
+}
+.state-strong,
+.state-integrated {
+  color: var(--success);
+}
+.state-partial,
+.state-testing,
+.state-evaluating {
+  color: var(--warning);
+}
+.state-missing,
+.state-rejected {
+  color: var(--danger);
+}
+.rubric-proof span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--link);
+}
+.rubric-item details,
+.contribution-item details {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.adaptive-workspace summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.adaptive-workspace blockquote {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.control-details {
+  border-top: 1px solid var(--border);
+  margin-top: 18px;
+  padding-top: 15px;
+}
+.contribution-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.contribution-panel label,
+.milestone-panel label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 11px;
+  margin: 12px 0 6px;
+}
+.contribution-panel textarea {
+  min-height: 115px;
+  font-size: 13px;
+}
+.contribution-submit {
+  margin-top: 12px;
+}
+.contribution-submit small,
+.contribution-item > small {
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.control-notice {
+  display: block;
+  padding: 10px 12px;
+  margin-top: 12px;
+  background: var(--surface-inset);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.contribution-item {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.contribution-meta {
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.contribution-meta .assessment-state {
+  margin: 0;
+}
+.contribution-text {
+  white-space: pre-wrap;
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+.contribution-result {
+  padding: 10px 12px;
+  border-left: 2px solid var(--border-strong);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.milestone-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 8px 0;
+}
+.milestone-row svg {
+  color: var(--success);
+  flex: none;
+}
+.milestone-row small {
+  color: var(--muted-foreground);
+  font-size: 10px;
+  margin-left: auto;
+}
+.milestone-panel form button {
+  margin-top: 12px;
+}
+@media (max-width: 1100px) {
+  .adaptive-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .schedule-summary {
+    padding: 14px;
+    gap: 14px 20px;
+  }
+  .verified-download {
+    margin-left: 0;
+  }
+  .contribution-fields {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .mission-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .milestone-row {
+    flex-wrap: wrap;
+  }
+}
+
+.version-history {
+  padding: 0 0 18px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--border);
+}
+.version-history .button-link {
+  margin-top: 10px;
+  font-size: 12px;
+}

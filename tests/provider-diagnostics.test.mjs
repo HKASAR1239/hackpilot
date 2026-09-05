@@ -131,10 +131,11 @@ if (prompt.includes('first-event-test')) {
       async () => {
         await assert.rejects(
           generate({ prompt: 'timeout-test', schema: {}, dir, timeoutMs: 300 }),
-          /limite de 30 minutes/,
+          /temps alloué.*1 s/,
         );
         const report = (await diagnostics()).find((r) => r.status === 'failed');
-        assert.match(report.stopReason, /30 minutes/);
+        assert.match(report.stopReason, /1 s/);
+        assert.equal(report.timeoutMs, 300);
         assert.throws(() => process.kill(report.pid, 0), { code: 'ESRCH' });
       },
     );

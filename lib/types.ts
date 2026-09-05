@@ -12,6 +12,98 @@ export type Idea = {
   reason: string;
 };
 export type Mission = MissionSummary & {
+  workflowVersion?: number;
+  selection?: {
+    selectedId: string;
+    options: {
+      ideaId: string;
+      feasible: boolean;
+      risk: string;
+      ratings: {
+        criterionId: string;
+        score: number | null;
+        evidence: string;
+      }[];
+    }[];
+  };
+  usage?: { calls: number; input: number; output: number };
+  schedule?: {
+    deadlineAt: string;
+    startedAt: string | null;
+    milestoneAt?: string;
+    callBudget: number;
+    verificationReserveMs: number;
+    phase: string;
+    milestones: { title: string; at: string; files: number; calls: number }[];
+    decisions: {
+      at: string;
+      action: string;
+      detail: string;
+      estimatedMinutes?: number;
+    }[];
+  };
+  rubric?: {
+    mode: string;
+    hash: string;
+    frozenAt: string;
+    uncertainties: string[];
+    criteria: {
+      id: string;
+      label: string;
+      sourceId: string;
+      quote: string;
+      weight: number | null;
+      weightQuote: string;
+      origin: string;
+    }[];
+  };
+  jury?: {
+    summary: string;
+    score: number | null;
+    method: string;
+    at: string;
+    checks: {
+      criterionId: string;
+      status: string;
+      score: number | null;
+      evidence: { path: string; detail: string }[];
+      gap: string;
+    }[];
+    improvements: {
+      criterionIds: string[];
+      deliverableIds: string[];
+      detail: string;
+      estimatedMinutes: number;
+      impact: string;
+    }[];
+  };
+  contributions?: {
+    id: string;
+    kind: string;
+    text: string;
+    author: string;
+    createdAt: string;
+    status: string;
+    result?: string;
+    actualTargets?: string[];
+    assessment?: {
+      reason: string;
+      estimatedMinutes: number;
+      risks: string[];
+      confidence: string;
+      decision: string;
+      checks: { criterionId: string; evidence: string }[];
+    };
+    comparison?: { reason: string; promoted: boolean; confidence: string };
+  }[];
+  lastVerified?: { id: string; at: string; files: string[]; complete: boolean };
+  verifiedVersions?: {
+    id: string;
+    at: string;
+    files: string[];
+    complete: boolean;
+  }[];
+  trial?: { contributionId: string; startedAt: string };
   startedAt?: string;
   completedAt?: string;
   files: string[];
@@ -57,6 +149,7 @@ export type Mission = MissionSummary & {
       weight: number | null;
       verified: boolean;
       sourceId: string;
+      origin?: string;
     }[];
     requirements: {
       id: string;
@@ -71,6 +164,7 @@ export type Mission = MissionSummary & {
   };
   activity?: { title: string; at: string };
   currentCall?: {
+    timeoutMs?: number;
     purpose: string;
     reasoningEffort: string;
     status: string;

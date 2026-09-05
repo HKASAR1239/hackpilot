@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useSyncExternalStore, useCallback } from 'react';
 import english from './en.json';
-import { englishMessage } from '../engine/english.mjs';
+import { englishMessage, frenchMessage } from '../engine/english.mjs';
 export type Locale = 'fr' | 'en';
 const dictionary: Record<string, string> = english;
 const event = 'hackpilot-language';
@@ -22,7 +22,9 @@ function subscribe(listener: () => void) {
   };
 }
 export function translate(text: string, locale: Locale) {
-  return locale === 'en' ? dictionary[text] || englishMessage(text) : text;
+  return locale === 'en'
+    ? dictionary[text] || englishMessage(text)
+    : frenchMessage(text);
 }
 export function useLanguage() {
   const locale = useSyncExternalStore(
