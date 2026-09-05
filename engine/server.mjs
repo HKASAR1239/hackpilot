@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { zipSync, strToU8 } from 'fflate';
 import { Store } from './store.mjs';
 import { Runner } from './runner.mjs';
-import { capabilities } from './provider.mjs';
+import { capabilities, generationSettings } from './provider.mjs';
 import { Documents, MAX_FILE_BYTES, documentError } from './documents.mjs';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 export const mime = {
@@ -188,8 +188,9 @@ export async function createApp({
       if (path === '/api/health') {
         reply(res, 200, {
           ok: true,
-          version: '0.0.4',
+          version: '0.0.5',
           providers: await capabilities(),
+          generation: generationSettings(),
           active: runner.running.size,
           limits: { minutes: EXECUTION_LIMIT_MINUTES, repairs: 2, calls: 9 },
           scope: 'adaptive-deliverables',

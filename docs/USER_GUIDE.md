@@ -96,13 +96,16 @@ You can stop an active project. After a server restart, unfinished projects are 
 
 ## Configuration
 
-| Variable                 | Default                                              | Purpose                      |
-| ------------------------ | ---------------------------------------------------- | ---------------------------- |
-| `PORT`                   | `4317` in production, `4318` for the development API | API / production server port |
-| `HACKPILOT_PREVIEW_PORT` | `4319`                                               | Isolated preview server port |
-| `HACKPILOT_DATA_DIR`     | `.hackpilot` in the project directory                | Local working data           |
-| `HACKPILOT_CODEX_BIN`    | Project-installed Codex                              | Alternative Codex executable |
-| `HACKPILOT_MODEL`        | Model configured in Codex                            | Generation model override    |
+| Variable                     | Default                                              | Purpose                             |
+| ---------------------------- | ---------------------------------------------------- | ----------------------------------- |
+| `PORT`                       | `4317` in production, `4318` for the development API | API / production server port        |
+| `HACKPILOT_PREVIEW_PORT`     | `4319`                                               | Isolated preview server port        |
+| `HACKPILOT_DATA_DIR`         | `.hackpilot` in the project directory                | Local working data                  |
+| `HACKPILOT_CODEX_BIN`        | Project-installed Codex                              | Alternative Codex executable        |
+| `HACKPILOT_MODEL`            | Model configured in Codex                            | Generation model override           |
+| `HACKPILOT_REASONING_EFFORT` | `xhigh`                                              | Reasoning for every generation step |
+
+Planning, production, content review, and repairs use the same requested reasoning effort. Supported configuration values are `low`, `medium`, `high`, `xhigh`, and `max`; the selected Codex model must support the value. For example, `HACKPILOT_MODEL=gpt-6-astra HACKPILOT_REASONING_EFFORT=xhigh npm start` explicitly selects Astra with xhigh reasoning. The activity log records the requested model and effort at the start of each attempt. If no model override is supplied, the log identifies the Codex configuration as the model source. A settings change applies after restarting the server and starting a new attempt; it does not revise already saved plans or deliverables. Create a new project with the same brief and documents for a fresh analysis.
 
 The server does not load `.env` files automatically. Set variables in the launch environment. The development UI and its API proxy use the ports in `vite.config.ts`; changing the development API port also requires updating that proxy.
 

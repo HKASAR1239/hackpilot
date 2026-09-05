@@ -8,6 +8,14 @@ const local = resolve(
   fileURLToPath(new URL('../node_modules/.bin/codex', import.meta.url)),
 );
 export const codexPath = process.env.HACKPILOT_CODEX_BIN || local;
+export function generationSettings(env = process.env) {
+  const reasoningEffort = env.HACKPILOT_REASONING_EFFORT || 'xhigh';
+  if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort))
+    throw new Error(
+      'HACKPILOT_REASONING_EFFORT: use low, medium, high, xhigh or max.',
+    );
+  return { model: env.HACKPILOT_MODEL || null, reasoningEffort };
+}
 export async function capabilities() {
   let codex = false;
   try {
@@ -16,7 +24,14 @@ export async function capabilities() {
   } catch {}
   return { codex };
 }
-export async function generate({ prompt, schema, dir, signal, onUsage }) {
+export async function generate({
+  prompt,
+  schema,
+  dir,
+  signal,
+  onUsage,
+  configuration = generationSettings(),
+}) {
   const schemaPath = join(dir, 'response-schema.json'),
     output = join(dir, 'response-' + Date.now() + '.json');
   await writeFile(schemaPath, JSON.stringify(schema));
@@ -30,15 +45,14 @@ export async function generate({ prompt, schema, dir, signal, onUsage }) {
     '-c',
     'approval_policy="never"',
     '-c',
-    'model_reasoning_effort="low"',
+    `model_reasoning_effort="${configuration.reasoningEffort}"`,
     '--output-schema',
     schemaPath,
     '--output-last-message',
     output,
     '-',
   ];
-  if (process.env.HACKPILOT_MODEL)
-    args.splice(1, 0, '--model', process.env.HACKPILOT_MODEL);
+  if (configuration.model) args.splice(1, 0, '--model', configuration.model);
   await new Promise((resolve, reject) => {
     const child = spawn(codexPath, args, {
       cwd: dir,

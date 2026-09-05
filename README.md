@@ -1,6 +1,6 @@
 # HackPilot
 
-**v0.0.4** · first project using Astra :)
+**v0.0.5** · first project using Astra :)
 
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
@@ -73,6 +73,8 @@ The **available time** field helps scope the project. A generation attempt has i
 ## Local storage and generation
 
 Projects are stored in `.hackpilot/`, which is excluded from Git. The current assignment draft, including extracted document text, is also saved in browser local storage until you clear it or remove site data. Document extraction and OCR run locally. During Codex generation, the brief, extracted source text, and content being generated or reviewed are sent through your configured Codex connection. Your account's usage limits apply.
+
+Generation uses the model configured in Codex and **`xhigh` reasoning** by default for planning, production, review, and repairs. Set `HACKPILOT_MODEL` to select a model and `HACKPILOT_REASONING_EFFORT=high` to use a lower effort. The selected model must support the requested effort. Each attempt records its requested settings in the activity log; existing results are not regenerated automatically.
 
 The app binds to loopback. Generated web previews use a separate local port and a content policy that blocks external connections. Generated programs are not run as shell commands; document exports are rendered from validated structured data.
 

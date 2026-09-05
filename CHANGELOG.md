@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.5 — 2026-09-05
+
+- Use xhigh reasoning by default throughout planning, production, review, and repairs.
+- Add a reasoning effort override and record requested generation settings in each attempt's activity log.
+- Expose requested model and reasoning settings in the health endpoint.
+
 ## 0.0.4 — 2026-09-05
 
 - Extend execution attempts and Codex step timeouts to two hours, with a shared overall deadline.

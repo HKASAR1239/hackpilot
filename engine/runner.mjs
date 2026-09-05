@@ -12,7 +12,7 @@ import {
   normalizePlan,
   validateBundle,
 } from './schema.mjs';
-import { generate, capabilities } from './provider.mjs';
+import { generate, capabilities, generationSettings } from './provider.mjs';
 import { fixturePlan, fixtureBundle } from './fixture.mjs';
 import { verify } from './verifier.mjs';
 import { materializeArtifacts, verifyArtifacts } from './artifacts.mjs';
@@ -84,6 +84,7 @@ export class Runner {
       schema,
       dir: join(this.store.dir(m.id), 'generation'),
       signal,
+      configuration: m.generationSettings,
       onUsage: (u) => {
         m.usage.input += u.input_tokens || 0;
         m.usage.output += u.output_tokens || 0;
@@ -155,6 +156,16 @@ export class Runner {
           ? 'Démonstration prédéfinie ; les tests seront réellement exécutés.'
           : 'Génération originale avec Codex. Aucune validation intermédiaire requise.',
       );
+      if (m.provider === 'codex') {
+        m.generationSettings = generationSettings();
+        const { model, reasoningEffort } = m.generationSettings;
+        await this.store.event(
+          m,
+          m.input.locale === 'en'
+            ? `Requested model: ${model || 'Codex configuration'} · reasoning: ${reasoningEffort}.`
+            : `Modèle demandé : ${model || 'configuration Codex'} · raisonnement : ${reasoningEffort}.`,
+        );
+      }
       await this.stage(m, 0, 'running');
       if (!m.sources.length) m.sources = await collectSources(m.input, signal);
       for (const s of m.sources)
