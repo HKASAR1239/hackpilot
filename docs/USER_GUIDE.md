@@ -84,13 +84,13 @@ Do not put credentials in a brief. Project exports include source material and s
 | Limit                                | Scope                              |
 | ------------------------------------ | ---------------------------------- |
 | One active project                   | Per server                         |
-| 15 minutes                           | Per execution attempt              |
-| Five minutes                         | Per Codex generation step          |
+| Two hours                            | Per execution attempt              |
+| Up to two hours                      | Per Codex step, within the attempt |
 | Nine model calls                     | Per project                        |
 | 300,000 input / 60,000 output tokens | Per project, checked between calls |
 | Two repairs                          | Per project                        |
 
-An individual call may cross a token threshold before the next check. Token limits are not a monetary cap; Codex account billing and usage limits still apply. The assignment's **available time** field guides project scope and does not change the engine's 15-minute attempt limit.
+An individual call may cross a token threshold before the next check. Token limits are not a monetary cap; Codex account billing and usage limits still apply. The assignment's **available time** field guides project scope and does not change the engine's two-hour attempt limit. The overall deadline includes all generation, verification, and repair steps; two hours is not added for each step.
 
 You can stop an active project. After a server restart, unfinished projects are marked interrupted. Resume uses saved work and the remaining project budget; it does not reset model usage or repair limits.
 

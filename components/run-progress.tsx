@@ -83,7 +83,7 @@ export function RunProgress({ mission }: { mission: Mission }) {
           {t(
             'Le projet avance automatiquement. Vous pouvez le laisser travailler.',
           )}{' '}
-          <span>{t('15 min maximum par tentative.')}</span>
+          <span>{t('2 h maximum par tentative.')}</span>
         </p>
       )}
     </section>

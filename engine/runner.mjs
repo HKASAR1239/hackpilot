@@ -1,3 +1,4 @@
+import { EXECUTION_LIMIT_MS } from '../lib/execution-limits.mjs';
 import { mkdir, writeFile, rm, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { englishMessage } from './english.mjs';
@@ -16,8 +17,7 @@ import { fixturePlan, fixtureBundle } from './fixture.mjs';
 import { verify } from './verifier.mjs';
 import { materializeArtifacts, verifyArtifacts } from './artifacts.mjs';
 import { planningPrompt, generationPrompt, reviewPrompt } from './prompts.mjs';
-const MAX_MS = 15 * 60 * 1000,
-  MAX_CALLS = 9,
+const MAX_CALLS = 9,
   MAX_INPUT = 300000,
   MAX_OUTPUT = 60000;
 export class Runner {
@@ -135,8 +135,8 @@ export class Runner {
     const { signal } = controller;
     const outputLanguage = m.input.locale === 'en' ? 'anglais' : 'français';
     const timer = setTimeout(
-      () => controller.abort(new Error('Limite de 15 minutes atteinte.')),
-      MAX_MS,
+      () => controller.abort(new Error('Limite de 2 heures atteinte.')),
+      EXECUTION_LIMIT_MS,
     );
     try {
       await mkdir(join(this.store.dir(m.id), 'generation'), {

@@ -733,7 +733,7 @@ export default function Home() {
                 <div className="launch-bottom">
                   <p>
                     <Clock3 size={15} />
-                    {t('Traitement : 15 min maximum')}
+                    {t('Traitement : 2 h maximum')}
                   </p>
                   <Button
                     type="submit"

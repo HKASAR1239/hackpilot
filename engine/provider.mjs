@@ -1,3 +1,4 @@
+import { EXECUTION_LIMIT_MS } from '../lib/execution-limits.mjs';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -69,10 +70,10 @@ export async function generate({ prompt, schema, dir, signal, onUsage }) {
       stop();
       finish(
         new Error(
-          'Le modèle a dépassé la limite de 5 minutes pour cette étape.',
+          'Le modèle a dépassé la limite de 2 heures pour cette étape.',
         ),
       );
-    }, 300000);
+    }, EXECUTION_LIMIT_MS);
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) {
       abort();

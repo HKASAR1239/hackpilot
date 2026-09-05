@@ -1,3 +1,4 @@
+import { EXECUTION_LIMIT_MINUTES } from '../lib/execution-limits.mjs';
 import http from 'node:http';
 import { readFile, realpath } from 'node:fs/promises';
 import { resolve, join, extname, sep } from 'node:path';
@@ -187,10 +188,10 @@ export async function createApp({
       if (path === '/api/health') {
         reply(res, 200, {
           ok: true,
-          version: '0.0.3',
+          version: '0.0.4',
           providers: await capabilities(),
           active: runner.running.size,
-          limits: { minutes: 15, repairs: 2, calls: 9 },
+          limits: { minutes: EXECUTION_LIMIT_MINUTES, repairs: 2, calls: 9 },
           scope: 'adaptive-deliverables',
         });
         return;

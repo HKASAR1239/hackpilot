@@ -1,6 +1,6 @@
 # HackPilot
 
-**v0.0.3** · first project using Astra :)
+**v0.0.4** · first project using Astra :)
 
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
@@ -68,7 +68,7 @@ Assignment → Sources → Plan → Production → Checks & repairs → Export
 4. Run format-specific checks, review the answer, and attempt repairs when needed.
 5. Package the files with the plan, sources, verification results, and remaining limitations.
 
-The **available time** field helps scope the project. A generation attempt has its own 15-minute limit. One project runs at a time; interrupted projects remain on disk and can be resumed within their remaining budgets.
+The **available time** field helps scope the project. A generation attempt has its own two-hour limit. One project runs at a time; interrupted projects remain on disk and can be resumed within their remaining budgets.
 
 ## Local storage and generation
 

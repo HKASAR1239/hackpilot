@@ -16,6 +16,9 @@ const messages = {
   'Arrêt demandé.': 'Stop requested.',
   'Mission arrêtée.': 'Project stopped.',
   'Mission interrompue.': 'Project interrupted.',
+  'Limite de 2 heures atteinte.': 'The two-hour limit was reached.',
+  'Le modèle a dépassé la limite de 2 heures pour cette étape.':
+    'The model exceeded the two-hour limit for this step.',
   'Limite de 15 minutes atteinte.': 'The 15-minute limit was reached.',
   'Le budget de génération est atteint. Les résultats sont conservés.':
     'The generation budget was reached. Results have been saved.',

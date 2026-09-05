@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.4 — 2026-09-05
+
+- Extend execution attempts and Codex step timeouts to two hours, with a shared overall deadline.
+- Update the interface and API limits to match the execution budget.
+- Preserve saved plans and model usage when resuming a timed-out project.
+
 ## 0.0.3 — 2026-09-05
 
 - Restore the open project, selected tab, and source reader after a page reload.
