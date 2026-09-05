@@ -206,5 +206,9 @@
   "Vérification des fichiers et correction des problèmes.": "Checking files and fixing issues.",
   "Préparation du dossier à télécharger.": "Preparing your download package.",
   "Le projet avance automatiquement. Vous pouvez le laisser travailler.": "Your project continues automatically. You can leave it working.",
-  "15 min maximum par tentative.": "Up to 15 minutes per attempt."
+  "15 min maximum par tentative.": "Up to 15 minutes per attempt.",
+  "Restauration de votre espace de travail": "Restoring your workspace",
+  "Vos projets et votre brouillon sont conservés.": "Your projects and draft are preserved.",
+  "Le projet enregistré n’est plus disponible. Votre brouillon est conservé.": "The saved project is no longer available. Your draft is preserved.",
+  "Réessayer": "Try again"
 }

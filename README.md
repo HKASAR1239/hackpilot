@@ -1,6 +1,6 @@
 # HackPilot
 
-**v0.0.2** · first project using Astra :)
+**v0.0.3** · first project using Astra :)
 
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
@@ -18,7 +18,7 @@ _English interface. Switch between English and French from the top bar._
 - **Choose useful deliverables.** Required formats take priority. HackPilot can propose a website, simulator, or another addition when it helps answer the assignment and fits the available time.
 - **Produce editable files.** Download reports, PowerPoint decks, Excel models with formulas, and web prototype source code.
 - **Check and correct.** Reopen exported documents, recompute calculations, run browser scenarios, and review the response against the brief. Up to two repair attempts are available.
-- **Pick up where you left off.** Your brief and settings are saved in the browser. Search previous projects and open completed work directly on its results.
+- **Pick up where you left off.** Your brief and settings are saved in the browser. Reloading also restores the open project, selected tab, and source file without restarting generation. Search previous projects and open completed work directly on its results.
 - **Keep the work inspectable.** Follow the current step and elapsed time, read the execution log, sources, and limitations, stop a run, resume interrupted work, and export the project as a ZIP.
 
 ## Quick start

@@ -187,7 +187,7 @@ export async function createApp({
       if (path === '/api/health') {
         reply(res, 200, {
           ok: true,
-          version: '0.0.2',
+          version: '0.0.3',
           providers: await capabilities(),
           active: runner.running.size,
           limits: { minutes: 15, repairs: 2, calls: 9 },

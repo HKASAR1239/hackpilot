@@ -32,9 +32,10 @@ For user-facing workflow changes, start the app and run:
 ```sh
 npm run test:e2e
 node scripts/test-documents-ui.mjs
+node scripts/workspace-ui.mjs
 ```
 
-Run the two browser workflows sequentially. They create synthetic projects and save results under `validation/`; the demo workflow does not call a model. Run `test:e2e` first so the validation output directory exists. Use a separate `HACKPILOT_DATA_DIR` if you want to keep test projects apart from your own work.
+Run the browser workflows sequentially. The workspace recovery check starts its own isolated server and uses synthetic data to test reloads during generation, draft and upload persistence, restored tabs and files, and recovery from a temporary API failure. They create synthetic projects and save results under `validation/`; the demo workflow does not call a model. Run `test:e2e` first so the validation output directory exists. Use a separate `HACKPILOT_DATA_DIR` if you want to keep test projects apart from your own work.
 
 Real-model checks are **opt-in** and consume the configured Codex account:
 

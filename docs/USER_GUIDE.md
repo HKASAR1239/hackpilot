@@ -27,6 +27,8 @@ Your brief, assignment URL, available time, generation setting, and imported doc
 
 Uploaded source drafts expire on the server after 24 hours. Expired documents are excluded when restoring a browser draft, and a notice asks you to import them again. Clearing the form removes its browser copy; attached sources in existing projects remain unchanged.
 
+Reloading restores the project, tab, and source file you were viewing. A run continues on the local server while its browser page is closed or reloaded; reopening the page reconnects to that run without starting another one. Each open project has a URL that also works in another browser connected to the same local server. Drafts and language preferences remain specific to each browser; switching browsers does not transfer an unlaunched draft.
+
 Search projects in the sidebar. On mobile, use the **Projects** toggle to open the list. A completed project opens on **Results**, where reports, slides, and spreadsheets have direct download buttons and optional alternative formats. **Read content** opens the source reader; the full file list stays collapsed until needed.
 
 While a project runs, the overview shows its current step, what that step does, and elapsed time. You can prepare another brief, but only one project can run at a time. **View progress** returns to the active run. Completing a run opens its results if you are still on its overview.

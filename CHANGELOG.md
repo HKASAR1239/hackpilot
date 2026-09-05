@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.3 — 2026-09-05
+
+- Restore the open project, selected tab, and source reader after a page reload.
+- Reconnect to active generation without starting a duplicate run.
+- Keep saved navigation intact when the local API is temporarily unavailable and offer retry.
+- Add local project URLs and an isolated browser regression check for workspace recovery.
+
 ## 0.0.2 — 2026-09-05
 
 - Simplified project setup with a compact form and collapsible generation settings.

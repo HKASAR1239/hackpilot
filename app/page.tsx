@@ -11,6 +11,10 @@ import type {
 import { useLanguage } from '@/lib/language';
 import { useProjectDraft } from '@/lib/use-project-draft';
 import { emptyDraft } from '@/lib/project-draft.mjs';
+import {
+  readWorkspaceView,
+  rememberWorkspaceView,
+} from '@/lib/workspace-view.mjs';
 import { RunProgress } from '@/components/run-progress';
 import { DocumentUpload, warningLabels } from '@/components/document-upload';
 import {
@@ -103,6 +107,7 @@ export default function Home() {
   const requestSequence = useRef(0);
   const [missions, setMissions] = useState<MissionSummary[]>([]),
     [active, setActive] = useState<Mission | null>(null);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false),
@@ -130,10 +135,63 @@ export default function Home() {
       .catch(() =>
         setError(t('Le moteur local est indisponible. Relancez HackPilot.')),
       );
-    api<MissionSummary[]>('/missions')
-      .then(setMissions)
-      .catch(() => {});
   }, [t]);
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreWorkspace() {
+      const sequence = ++requestSequence.current;
+      const savedView = readWorkspaceView();
+      const list = await api<MissionSummary[]>('/missions');
+      const id = savedView
+        ? savedView.missionId
+        : list.find((m) => ['running', 'queued'].includes(m.status))?.id;
+      const exists = id && list.some((m) => m.id === id);
+      const mission = exists ? await api<Mission>('/missions/' + id) : null;
+      let selectedFile: { path: string; content: string } | null = null;
+      if (
+        mission &&
+        savedView?.filePath &&
+        mission.files.includes(savedView.filePath)
+      ) {
+        selectedFile = await api<{ path: string; content: string }>(
+          '/missions/' +
+            mission.id +
+            '/file?path=' +
+            encodeURIComponent(savedView.filePath),
+        );
+      }
+      if (cancelled || sequence !== requestSequence.current) return;
+      setMissions(list);
+      setActive(mission);
+      setTab(
+        savedView?.tab ||
+          (mission?.status === 'completed' ? 'project' : 'overview'),
+      );
+      setFile(selectedFile);
+      setSourceFilesOpen(savedView?.sourceFilesOpen || false);
+      if (id && !exists)
+        setError(
+          'Le projet enregistré n’est plus disponible. Votre brouillon est conservé.',
+        );
+      setWorkspaceReady(true);
+    }
+    const failed = (e: unknown) => {
+      if (!cancelled) setError(message(e));
+    };
+    const navigate = () => {
+      setWorkspaceReady(false);
+      setError('');
+      restoreWorkspace().catch(failed);
+    };
+    restoreWorkspace().catch(failed);
+    window.addEventListener('hashchange', navigate);
+    window.addEventListener('popstate', navigate);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('hashchange', navigate);
+      window.removeEventListener('popstate', navigate);
+    };
+  }, []);
   const activeId = active?.id,
     activeStatus = active?.status;
   const runningMission = missions.find((m) =>
@@ -141,10 +199,23 @@ export default function Home() {
   );
   const runningMissionId = runningMission?.id;
   useEffect(() => {
+    if (!workspaceReady) return;
+    rememberWorkspaceView({
+      missionId: activeId || null,
+      tab,
+      filePath: file?.path || null,
+      sourceFilesOpen,
+    });
+  }, [workspaceReady, activeId, tab, file?.path, sourceFilesOpen]);
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [activeId]);
   useEffect(() => {
-    if (!runningMissionId || ['running', 'queued'].includes(activeStatus || ''))
+    if (
+      !workspaceReady ||
+      !runningMissionId ||
+      ['running', 'queued'].includes(activeStatus || '')
+    )
       return;
     const timer = setInterval(() => {
       api<MissionSummary[]>('/missions')
@@ -152,7 +223,7 @@ export default function Home() {
         .catch(() => {});
     }, 2000);
     return () => clearInterval(timer);
-  }, [runningMissionId, activeStatus]);
+  }, [workspaceReady, runningMissionId, activeStatus]);
   useEffect(() => {
     const previous = previousRun.current;
     if (
@@ -170,6 +241,7 @@ export default function Home() {
   }, [activeId, activeStatus, tab]);
   useEffect(() => {
     if (
+      !workspaceReady ||
       !activeId ||
       !activeStatus ||
       !['running', 'queued'].includes(activeStatus)
@@ -180,7 +252,7 @@ export default function Home() {
       1800,
     );
     return () => clearInterval(t);
-  }, [activeId, activeStatus]);
+  }, [workspaceReady, activeId, activeStatus]);
   async function launch(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -241,11 +313,11 @@ export default function Home() {
       .includes(projectQuery.trim().toLocaleLowerCase()),
   );
   useEffect(() => {
-    if (file)
+    if (file && tab === 'project' && sourceFilesOpen)
       document
         .getElementById('file-reader')
         ?.scrollIntoView({ block: 'nearest' });
-  }, [file]);
+  }, [file, tab, sourceFilesOpen]);
   const webProject =
     !active?.plan?.deliverables ||
     active.plan.deliverables.some((d) => d.kind === 'web');
@@ -269,11 +341,13 @@ export default function Home() {
         <div className="rail-section">{t('Espace de travail')}</div>
         <Button
           className="new-mission"
+          disabled={!workspaceReady}
           onClick={() => {
             requestSequence.current++;
             setMobileProjectsOpen(false);
             setActive(null);
             setFile(null);
+            setSourceFilesOpen(false);
             setError('');
           }}
         >
@@ -402,7 +476,21 @@ export default function Home() {
             </button>
           </div>
         )}
-        {!active ? (
+        {!workspaceReady ? (
+          <div className="launch-layout" aria-live="polite">
+            <div className="page-heading">
+              <h1>{t('Restauration de votre espace de travail')}</h1>
+              <p>{t('Vos projets et votre brouillon sont conservés.')}</p>
+              {error ? (
+                <Button onClick={() => window.location.reload()}>
+                  {t('Réessayer')}
+                </Button>
+              ) : (
+                <Loader2 size={22} className="spin" />
+              )}
+            </div>
+          </div>
+        ) : !active ? (
           <div className="launch-layout">
             <div className="page-heading">
               <h1>{t('Nouveau projet')}</h1>
