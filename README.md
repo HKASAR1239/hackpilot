@@ -1,6 +1,6 @@
 # HackPilot
 
-**v0.0.1** · first project using Astra :)
+**v0.0.2** · first project using Astra :)
 
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
@@ -8,9 +8,9 @@ HackPilot is a local workspace that reads an assignment, chooses an approach, pr
 
 [Get started](#quick-start) · [User guide](docs/USER_GUIDE.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
 
-![HackPilot's dark workspace with a sample case study, document import, and delivery workflow](docs/images/workspace.png)
+![HackPilot's dark workspace with a sample case study, document import, and delivery workflow](docs/images/workspace-en.png)
 
-_French interface shown. English is available from the language selector._
+_English interface. Switch between English and French from the top bar._
 
 ## What it does
 
@@ -18,7 +18,8 @@ _French interface shown. English is available from the language selector._
 - **Choose useful deliverables.** Required formats take priority. HackPilot can propose a website, simulator, or another addition when it helps answer the assignment and fits the available time.
 - **Produce editable files.** Download reports, PowerPoint decks, Excel models with formulas, and web prototype source code.
 - **Check and correct.** Reopen exported documents, recompute calculations, run browser scenarios, and review the response against the brief. Up to two repair attempts are available.
-- **Keep the work inspectable.** Follow the execution log, read sources and limitations, stop a run, resume interrupted work, and export the project as a ZIP.
+- **Pick up where you left off.** Your brief and settings are saved in the browser. Search previous projects and open completed work directly on its results.
+- **Keep the work inspectable.** Follow the current step and elapsed time, read the execution log, sources, and limitations, stop a run, resume interrupted work, and export the project as a ZIP.
 
 ## Quick start
 
@@ -36,7 +37,7 @@ npm start
 
 Open **[localhost:4317](http://127.0.0.1:4317)**. Skip `npm run login` if Codex is already authenticated on your machine. On Linux, browser system dependencies may also be needed: `npx playwright install --with-deps chromium`.
 
-Choose **English** in the top bar, add your assignment and any documents, set the available time, then select **Create project**. The language choice is saved in your browser and used for new generated projects.
+Choose **English** in the top bar, add your assignment and any documents, set the available time, then select **Create project**. The language choice is saved in your browser and used for new generated projects. Your assignment draft is saved as you edit; **Clear** removes it, with an **Undo** option.
 
 ### Try it without a model call
 
@@ -71,7 +72,7 @@ The **available time** field helps scope the project. A generation attempt has i
 
 ## Local storage and generation
 
-Projects are stored in `.hackpilot/`, which is excluded from Git. Document extraction and OCR run locally. During Codex generation, the brief, extracted source text, and content being generated or reviewed are sent through your configured Codex connection. Your account's usage limits apply.
+Projects are stored in `.hackpilot/`, which is excluded from Git. The current assignment draft, including extracted document text, is also saved in browser local storage until you clear it or remove site data. Document extraction and OCR run locally. During Codex generation, the brief, extracted source text, and content being generated or reviewed are sent through your configured Codex connection. Your account's usage limits apply.
 
 The app binds to loopback. Generated web previews use a separate local port and a content policy that blocks external connections. Generated programs are not run as shell commands; document exports are rendered from validated structured data.
 

@@ -12,6 +12,8 @@ export type Idea = {
   reason: string;
 };
 export type Mission = MissionSummary & {
+  startedAt?: string;
+  completedAt?: string;
   files: string[];
   artifacts?: {
     id: string;

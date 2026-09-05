@@ -37,11 +37,10 @@ try {
     .waitFor();
   await page
     .getByRole('tab', {
-      name: web
-        ? (await page.locator('#language').inputValue()) === 'en'
-          ? 'Preview & code'
-          : 'Aperçu & code'
-        : 'Documents',
+      name:
+        (await page.locator('#language').inputValue()) === 'en'
+          ? 'Results'
+          : 'Résultats',
       exact: true,
     })
     .click();
@@ -83,11 +82,10 @@ try {
   checks.push('Vue des vérifications traduite en anglais');
   await page
     .getByRole('tab', {
-      name: web
-        ? (await page.locator('#language').inputValue()) === 'en'
-          ? 'Preview & code'
-          : 'Aperçu & code'
-        : 'Documents',
+      name:
+        (await page.locator('#language').inputValue()) === 'en'
+          ? 'Results'
+          : 'Résultats',
       exact: true,
     })
     .click();
@@ -105,6 +103,7 @@ try {
   checks.push('Documents utilisables sur mobile');
   await page.reload({ waitUntil: 'networkidle' });
   assert.equal(await page.locator('#language').inputValue(), 'en');
+  await page.locator('.mobile-projects-toggle').click();
   await page
     .locator('.mission-link')
     .filter({ hasText: mission.name })

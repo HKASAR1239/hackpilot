@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type {
@@ -9,6 +9,9 @@ import type {
   UploadedDocument,
 } from '@/lib/types';
 import { useLanguage } from '@/lib/language';
+import { useProjectDraft } from '@/lib/use-project-draft';
+import { emptyDraft } from '@/lib/project-draft.mjs';
+import { RunProgress } from '@/components/run-progress';
 import { DocumentUpload, warningLabels } from '@/components/document-upload';
 import {
   ArrowUpRight,
@@ -17,7 +20,6 @@ import {
   Plus,
   Terminal,
   Check,
-  Circle,
   Loader2,
   FileCode2,
   FlaskConical,
@@ -34,6 +36,9 @@ import {
   ListChecks,
   Monitor,
   AlertCircle,
+  Search,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -41,13 +46,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Sidebar, SidebarProvider } from '@/components/ui/sidebar';
-const phases = [
-  'Sources',
-  'Stratégie',
-  'Production',
-  'Vérification',
-  'Livraison',
-];
 const statuses: Record<string, string> = {
   queued: 'En attente',
   running: 'En cours',
@@ -76,15 +74,36 @@ function message(error: unknown) {
 }
 export default function Home() {
   const { locale, setLocale, t } = useLanguage();
-  const [documents, setDocuments] = useState<UploadedDocument[]>([]),
-    [uploading, setUploading] = useState(false);
+  const {
+    draft,
+    update,
+    ready: draftReady,
+    saved,
+    storageAvailable,
+    expired,
+    dismissExpired,
+  } = useProjectDraft();
+  const { brief, url, hours, provider, documents } = draft;
+  const [uploading, setUploading] = useState(false);
+  const [undoDraft, setUndoDraft] = useState<typeof draft | null>(null);
+  function editDraft(patch: Partial<typeof draft>) {
+    setUndoDraft(null);
+    update(patch);
+  }
+  const setBrief = (brief: string) => editDraft({ brief });
+  const setUrl = (url: string) => editDraft({ url });
+  const setHours = (hours: string) => editDraft({ hours });
+  const setProvider = (provider: string) => editDraft({ provider });
+  const setDocuments = (documents: UploadedDocument[]) =>
+    editDraft({ documents });
+  const [projectQuery, setProjectQuery] = useState('');
+  const [mobileProjectsOpen, setMobileProjectsOpen] = useState(false);
+  const [sourceFilesOpen, setSourceFilesOpen] = useState(false);
+  const previousRun = useRef<{ id: string; status: string } | null>(null);
+  const requestSequence = useRef(0);
   const [missions, setMissions] = useState<MissionSummary[]>([]),
     [active, setActive] = useState<Mission | null>(null);
-  const [health, setHealth] = useState<Health | null>(null),
-    [brief, setBrief] = useState(''),
-    [url, setUrl] = useState('');
-  const [hours, setHours] = useState('24'),
-    [provider, setProvider] = useState('auto');
+  const [health, setHealth] = useState<Health | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -93,9 +112,17 @@ export default function Home() {
     path: string;
     content: string;
   } | null>(null);
-  async function refresh(id?: string) {
-    setMissions(await api<MissionSummary[]>('/missions'));
-    if (id) setActive(await api<Mission>('/missions/' + id));
+  async function refresh(id?: string, open = false) {
+    const sequence = ++requestSequence.current;
+    const list = await api<MissionSummary[]>('/missions');
+    if (sequence !== requestSequence.current) return;
+    setMissions(list);
+    if (id) {
+      const mission = await api<Mission>('/missions/' + id);
+      if (sequence !== requestSequence.current) return;
+      setActive(mission);
+      if (open) setTab(mission.status === 'completed' ? 'project' : 'overview');
+    }
   }
   useEffect(() => {
     api<Health>('/health')
@@ -109,6 +136,38 @@ export default function Home() {
   }, [t]);
   const activeId = active?.id,
     activeStatus = active?.status;
+  const runningMission = missions.find((m) =>
+    ['running', 'queued'].includes(m.status),
+  );
+  const runningMissionId = runningMission?.id;
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeId]);
+  useEffect(() => {
+    if (!runningMissionId || ['running', 'queued'].includes(activeStatus || ''))
+      return;
+    const timer = setInterval(() => {
+      api<MissionSummary[]>('/missions')
+        .then(setMissions)
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [runningMissionId, activeStatus]);
+  useEffect(() => {
+    const previous = previousRun.current;
+    if (
+      activeId &&
+      previous?.id === activeId &&
+      ['running', 'queued'].includes(previous.status) &&
+      activeStatus === 'completed' &&
+      tab === 'overview'
+    ) {
+      setTab('project');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+    previousRun.current =
+      activeId && activeStatus ? { id: activeId, status: activeStatus } : null;
+  }, [activeId, activeStatus, tab]);
   useEffect(() => {
     if (
       !activeId ||
@@ -162,6 +221,7 @@ export default function Home() {
   }
   async function readFile(path: string) {
     if (!active) return;
+    setSourceFilesOpen(true);
     try {
       setFile(
         await api<{
@@ -174,6 +234,18 @@ export default function Home() {
     }
   }
   const running = active && ['running', 'queued'].includes(active.status);
+  const hasDraft = !!(brief.trim() || url.trim() || documents.length);
+  const filteredMissions = missions.filter((m) =>
+    m.name
+      .toLocaleLowerCase()
+      .includes(projectQuery.trim().toLocaleLowerCase()),
+  );
+  useEffect(() => {
+    if (file)
+      document
+        .getElementById('file-reader')
+        ?.scrollIntoView({ block: 'nearest' });
+  }, [file]);
   const webProject =
     !active?.plan?.deliverables ||
     active.plan.deliverables.some((d) => d.kind === 'web');
@@ -198,6 +270,8 @@ export default function Home() {
         <Button
           className="new-mission"
           onClick={() => {
+            requestSequence.current++;
+            setMobileProjectsOpen(false);
             setActive(null);
             setFile(null);
             setError('');
@@ -206,50 +280,83 @@ export default function Home() {
           <Plus size={17} />
           {t('Nouveau projet')}
         </Button>
-        <div className="project-list-heading">
-          {t('Projets')}
-          <span>{missions.length}</span>
-        </div>
-        <nav className="mission-nav" aria-label={t('Projets')}>
-          {missions.length === 0 ? (
-            <p className="nav-empty">{t('Vos projets apparaîtront ici.')}</p>
-          ) : (
-            missions.map((m) => (
-              <button
-                key={m.id}
-                title={m.name}
-                aria-current={active?.id === m.id ? 'page' : undefined}
-                className={
-                  'mission-link ' + (active?.id === m.id ? 'selected' : '')
-                }
-                onClick={() => {
-                  setFile(null);
-                  setTab('overview');
-                  refresh(m.id).catch((e) => setError(e.message));
-                }}
-              >
-                <span className={'status-dot ' + m.status} />
-                <span className="project-name">
-                  <span>{m.name}</span>
-                  <small>
-                    {new Date(m.createdAt).toLocaleDateString(
-                      locale === 'en' ? 'en-GB' : 'fr-FR',
-                      {
-                        day: 'numeric',
-                        month: 'short',
-                      },
-                    )}{' '}
-                    ·{' '}
-                    {t(
-                      m.status === 'completed' ? 'Terminé' : statuses[m.status],
-                    )}
-                  </small>
-                </span>
-                <ChevronRight size={14} />
-              </button>
-            ))
+        <button
+          className="mobile-projects-toggle"
+          aria-expanded={mobileProjectsOpen}
+          aria-controls="project-navigation"
+          onClick={() => setMobileProjectsOpen(!mobileProjectsOpen)}
+        >
+          <FolderOpen size={16} /> {t('Projets')} <span>{missions.length}</span>
+          <ChevronDown size={15} />
+        </button>
+        <div
+          className="project-navigation"
+          id="project-navigation"
+          data-open={mobileProjectsOpen}
+        >
+          <div className="project-list-heading">
+            {t('Projets')}
+            <span>{missions.length}</span>
+          </div>
+          {missions.length > 0 && (
+            <div className="project-search">
+              <Search size={15} />
+              <input
+                type="search"
+                aria-label={t('Rechercher un projet')}
+                placeholder={t('Rechercher un projet')}
+                value={projectQuery}
+                onChange={(e) => setProjectQuery(e.target.value)}
+              />
+            </div>
           )}
-        </nav>
+          <nav className="mission-nav" aria-label={t('Projets')}>
+            {missions.length === 0 ? (
+              <p className="nav-empty">{t('Vos projets apparaîtront ici.')}</p>
+            ) : (
+              filteredMissions.map((m) => (
+                <button
+                  key={m.id}
+                  title={m.name}
+                  aria-current={active?.id === m.id ? 'page' : undefined}
+                  className={
+                    'mission-link ' + (active?.id === m.id ? 'selected' : '')
+                  }
+                  onClick={() => {
+                    setFile(null);
+                    setSourceFilesOpen(false);
+                    setMobileProjectsOpen(false);
+                    refresh(m.id, true).catch((e) => setError(e.message));
+                  }}
+                >
+                  <span className={'status-dot ' + m.status} />
+                  <span className="project-name">
+                    <span>{m.name}</span>
+                    <small>
+                      {new Date(m.createdAt).toLocaleDateString(
+                        locale === 'en' ? 'en-GB' : 'fr-FR',
+                        {
+                          day: 'numeric',
+                          month: 'short',
+                        },
+                      )}{' '}
+                      ·{' '}
+                      {t(
+                        m.status === 'completed'
+                          ? 'Terminé'
+                          : statuses[m.status],
+                      )}
+                    </small>
+                  </span>
+                  <ChevronRight size={14} />
+                </button>
+              ))
+            )}
+            {missions.length > 0 && filteredMissions.length === 0 && (
+              <p className="nav-empty">{t('Aucun projet trouvé.')}</p>
+            )}
+          </nav>
+        </div>
         <div className="rail-foot">
           <div className="local-indicator">
             <span className={health ? 'online-dot' : 'offline-dot'} />
@@ -309,26 +416,84 @@ export default function Home() {
               className="launch-main"
               aria-label={t('Configuration du projet')}
             >
+              {runningMission && (
+                <div className="active-project-notice" aria-live="polite">
+                  <Loader2 size={16} className="spin" />
+                  <span>{t('Un projet est déjà en cours.')}</span>
+                  <button
+                    onClick={() =>
+                      refresh(runningMission.id, true).catch((e) =>
+                        setError(e.message),
+                      )
+                    }
+                  >
+                    {t('Voir la progression')}
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
               <form onSubmit={launch} className="launch-form">
                 <div className="form-heading">
                   <h2>{t('Brief du projet')}</h2>
-                  <span>{t('01 / Configuration')}</span>
-                </div>
-                <div className="form-fields">
-                  <label htmlFor="source-url">
-                    {t('Lien de l’énoncé')}
-                    <span>{t('Facultatif')}</span>
-                  </label>
-                  <div className="url-input">
-                    <Link2 size={16} />
-                    <Input
-                      id="source-url"
-                      type="url"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      placeholder="https://hackathon.devpost.com"
-                    />
+                  <div className="draft-controls">
+                    <span className="draft-status" aria-live="polite">
+                      {saved && hasDraft ? <Check size={13} /> : null}
+                      {t(
+                        !storageAvailable
+                          ? 'Brouillon non sauvegardé'
+                          : hasDraft
+                            ? 'Brouillon enregistré'
+                            : 'Sauvegarde automatique',
+                      )}
+                    </span>
+                    {hasDraft && (
+                      <button
+                        type="button"
+                        className="draft-reset"
+                        disabled={busy || uploading}
+                        onClick={() => {
+                          setUndoDraft(draft);
+                          update(emptyDraft());
+                        }}
+                        aria-label={t('Effacer le brouillon')}
+                      >
+                        {t('Effacer')}
+                      </button>
+                    )}
                   </div>
+                </div>
+                <fieldset
+                  className="form-fields"
+                  disabled={busy || !draftReady}
+                >
+                  {undoDraft && (
+                    <div className="draft-feedback" aria-live="polite">
+                      {t('Brouillon effacé.')}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          update(undoDraft);
+                          setUndoDraft(null);
+                        }}
+                      >
+                        {t('Annuler')}
+                      </button>
+                    </div>
+                  )}
+                  {expired > 0 && (
+                    <div className="draft-feedback" aria-live="polite">
+                      {t(
+                        'Les documents du brouillon ont expiré. Ajoutez-les de nouveau.',
+                      )}
+                      <button
+                        type="button"
+                        onClick={dismissExpired}
+                        aria-label={t('Fermer')}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
                   <label htmlFor="brief">{t('Objectif et contraintes')}</label>
                   <Textarea
                     id="brief"
@@ -337,13 +502,8 @@ export default function Home() {
                     placeholder={t(
                       'Précisez les questions à résoudre, les livrables attendus, les données et les critères d’évaluation.',
                     )}
-                    rows={7}
+                    rows={5}
                   />
-                  <p className="field-help">
-                    {t(
-                      'Le texte du règlement peut être ajouté directement au brief.',
-                    )}
-                  </p>
                   <div className="examples">
                     <span>{t('Exemples')}</span>
                     <button
@@ -387,91 +547,101 @@ export default function Home() {
                       <ArrowUpRight size={13} />
                     </button>
                   </div>
-                  <p className="field-help">
-                    {t(
-                      'Les livrables suivent l’énoncé. Un site ou un autre complément peut être ajouté s’il apporte une valeur concrète au sujet.',
-                    )}
-                  </p>
+                  <label htmlFor="source-url">
+                    {t('Lien de l’énoncé')}
+                    <span>{t('Facultatif')}</span>
+                  </label>
+                  <div className="url-input">
+                    <Link2 size={16} />
+                    <Input
+                      id="source-url"
+                      type="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://hackathon.devpost.com"
+                    />
+                  </div>
                   <DocumentUpload
                     documents={documents}
                     onChange={setDocuments}
                     onBusy={setUploading}
                     disabled={busy}
                   />
-                  <div className="duration-field">
-                    <label htmlFor="hours">{t('Temps disponible')}</label>
-                    <div className="duration-input">
-                      <Input
-                        id="hours"
-                        type="number"
-                        min="1"
-                        max="720"
-                        value={hours}
-                        onChange={(e) => setHours(e.target.value)}
-                      />
-                      <span>{t('heures')}</span>
-                    </div>
-                    <p className="field-help">
-                      {t('Utilisée pour ajuster le périmètre du projet.')}
-                    </p>
-                  </div>
-                  <div className="generation-settings">
-                    <button
-                      type="button"
-                      className="settings-toggle"
-                      aria-expanded={settingsOpen}
-                      aria-controls="generation-settings"
-                      onClick={() => setSettingsOpen(!settingsOpen)}
-                    >
-                      <Settings2 size={16} />
-                      <span>{t('Paramètres de génération')}</span>
-                      <small>
-                        {provider === 'demo' ? t('Exemple prédéfini') : 'Codex'}
-                      </small>
-                      <ChevronRight size={15} />
-                    </button>
-                    <div id="generation-settings" hidden={!settingsOpen}>
-                      <label htmlFor="provider">
-                        {t('Mode de génération')}
-                      </label>
-                      <NativeSelect
-                        id="provider"
-                        value={provider}
-                        onChange={(e) => setProvider(e.target.value)}
-                      >
-                        <option value="auto">{t('Automatique')}</option>
-                        <option value="codex">{t('Connexion Codex')}</option>
-                        <option value="demo">{t('Exemple prédéfini')}</option>
-                      </NativeSelect>
-                      <p className="field-help">
-                        {provider === 'demo'
-                          ? t(
-                              'Projet de démonstration fixe, sans appel au modèle.',
-                            )
-                          : t(
-                              'Le brief est transmis via votre connexion Codex.',
-                            )}
-                      </p>
-                      <p className="field-help">
-                        {t(
-                          'Les nouveaux projets suivent la langue de l’interface. Les projets existants conservent leur contenu.',
-                        )}
-                      </p>
-                      <div className="provider-status">
-                        <span
-                          className={
-                            health?.providers?.codex
-                              ? 'online-dot'
-                              : 'offline-dot'
-                          }
+                  <div className="setup-options">
+                    <div className="duration-field">
+                      <label htmlFor="hours">{t('Temps disponible')}</label>
+                      <div className="duration-input">
+                        <Input
+                          id="hours"
+                          type="number"
+                          min="1"
+                          max="720"
+                          value={hours}
+                          onChange={(e) => setHours(e.target.value)}
                         />
-                        {health?.providers?.codex
-                          ? t('Codex installé')
-                          : t('Codex non détecté')}
+                        <span>{t('heures')}</span>
+                      </div>
+                    </div>
+                    <div className="generation-settings">
+                      <button
+                        type="button"
+                        className="settings-toggle"
+                        aria-expanded={settingsOpen}
+                        aria-controls="generation-settings"
+                        onClick={() => setSettingsOpen(!settingsOpen)}
+                      >
+                        <Settings2 size={16} />
+                        <span>{t('Paramètres de génération')}</span>
+                        <small>
+                          {provider === 'demo'
+                            ? t('Exemple prédéfini')
+                            : 'Codex'}
+                        </small>
+                        <ChevronRight size={15} />
+                      </button>
+                      <div id="generation-settings" hidden={!settingsOpen}>
+                        <label htmlFor="provider">
+                          {t('Mode de génération')}
+                        </label>
+                        <NativeSelect
+                          id="provider"
+                          value={provider}
+                          onChange={(e) => setProvider(e.target.value)}
+                        >
+                          <option value="auto">{t('Automatique')}</option>
+                          <option value="codex">{t('Connexion Codex')}</option>
+                          <option value="demo">{t('Exemple prédéfini')}</option>
+                        </NativeSelect>
+                        <p className="field-help">
+                          {provider === 'demo'
+                            ? t(
+                                'Projet de démonstration fixe, sans appel au modèle.',
+                              )
+                            : t(
+                                'Le brief est transmis via votre connexion Codex.',
+                              )}
+                        </p>
+                        <p className="field-help">
+                          {t(
+                            'Les nouveaux projets suivent la langue de l’interface. Les projets existants conservent leur contenu.',
+                          )}
+                        </p>
+                        <div className="provider-status">
+                          <span
+                            className={
+                              health?.providers?.codex
+                                ? 'online-dot'
+                                : 'offline-dot'
+                            }
+                          />
+                          {health?.providers?.codex
+                            ? t('Codex installé')
+                            : t('Codex non détecté')}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </fieldset>
                 <div className="launch-bottom">
                   <p>
                     <Clock3 size={15} />
@@ -482,6 +652,8 @@ export default function Home() {
                     className="launch-button"
                     disabled={
                       busy ||
+                      !draftReady ||
+                      !!runningMission ||
                       uploading ||
                       (!brief.trim() && !url.trim() && !documents.length)
                     }
@@ -520,33 +692,20 @@ export default function Home() {
                   </span>
                 </div>
               </section>
-              <section className="process-section">
-                <h2>{t('Étapes du projet')}</h2>
-                <ol className="pipeline">
-                  {phases.map((phase, i) => (
-                    <li className="pipeline-step" key={phase}>
-                      <span>{i + 1}</span>
-                      <div>
-                        <strong>{t(phase)}</strong>
-                        <p>
-                          {
-                            [
-                              t('Lecture des questions et des contraintes'),
-                              t('Choix de l’approche et des livrables'),
-                              t('Production des livrables retenus'),
-                              t('Tests et corrections'),
-                              t('Préparation des livrables'),
-                            ][i]
-                          }
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </section>
+              <div className="autonomy-note">
+                <Check size={16} />
+                <div>
+                  <strong>{t('Un lancement suffit')}</strong>
+                  <p>
+                    {t(
+                      'L’approche, les formats et les corrections sont gérés automatiquement.',
+                    )}
+                  </p>
+                </div>
+              </div>
               <p className="scope-note">
                 {t(
-                  'Les documents sont téléchargeables. Les prototypes web fonctionnent localement ; leurs intégrations externes restent à compléter.',
+                  'Les livrables suivent l’énoncé. Un site ou un autre complément peut être ajouté s’il apporte une valeur concrète au sujet.',
                 )}
               </p>
             </aside>
@@ -592,23 +751,7 @@ export default function Home() {
                 )}
               </div>
             </div>
-            <div className="run-strip">
-              {phases.map((p, i) => {
-                const s = active.stages?.[i];
-                return (
-                  <div key={p} className={s?.status || 'pending'}>
-                    {s?.status === 'done' ? (
-                      <Check size={16} />
-                    ) : s?.status === 'running' ? (
-                      <Loader2 size={16} className="spin" />
-                    ) : (
-                      <Circle size={14} />
-                    )}
-                    <span>{t(p)}</span>
-                  </div>
-                );
-              })}
-            </div>
+            <RunProgress mission={active} />
             <div className="metrics">
               <div>
                 <span>{t('Statut')}</span>
@@ -651,13 +794,13 @@ export default function Home() {
             <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
               <TabsList variant="line" className="mission-tabs">
                 <TabsTrigger value="overview">{t('Synthèse')}</TabsTrigger>
-                <TabsTrigger value="project">
-                  {t(webProject ? 'Aperçu & code' : 'Documents')}
-                </TabsTrigger>
+                <TabsTrigger value="project">{t('Résultats')}</TabsTrigger>
                 <TabsTrigger value="tests">
                   {t(webProject ? 'Tests' : 'Vérifications')}
                 </TabsTrigger>
-                <TabsTrigger value="submission">{t('Livrables')}</TabsTrigger>
+                <TabsTrigger value="submission">
+                  {t('Dossier final')}
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="overview">
                 <div className="overview-grid">
@@ -815,6 +958,28 @@ export default function Home() {
                 </section>
               </TabsContent>
               <TabsContent value="project">
+                {active.status === 'completed' && (
+                  <div className="results-summary">
+                    <div className="result-check">
+                      <Check size={20} />
+                    </div>
+                    <div>
+                      <h2>{t('Vos livrables sont prêts')}</h2>
+                      <p>
+                        {t(
+                          'Téléchargez les fichiers ou consultez leur contenu ci-dessous.',
+                        )}
+                      </p>
+                    </div>
+                    {!!active.review?.gaps.length && (
+                      <button onClick={() => setTab('tests')}>
+                        <AlertCircle size={14} />
+                        {active.review.gaps.length} {t('point(s) à relire')}
+                        <ArrowRight size={14} />
+                      </button>
+                    )}
+                  </div>
+                )}
                 {active.files?.length > 0 ? (
                   <>
                     {active.previewUrl && (
@@ -847,38 +1012,88 @@ export default function Home() {
                           <FileText size={18} />
                           {t('Documents produits')}
                         </h2>
-                        {active.artifacts.map((a) => (
-                          <article key={a.id}>
-                            <h3>{a.title}</h3>
-                            <div className="artifact-actions">
-                              <Button
-                                variant="outline"
-                                onClick={() => readFile(a.preview)}
-                              >
-                                {t('Lire le contenu')}
-                              </Button>
-                              {a.files
-                                .filter((f) => !f.endsWith('.md'))
-                                .map((f) => (
-                                  <a
-                                    className="button-link"
-                                    key={f}
-                                    href={downloadFile(f)}
+                        <div className="artifact-grid">
+                          {active.artifacts.map((a) => {
+                            const extension =
+                              a.kind === 'presentation'
+                                ? '.pptx'
+                                : a.kind === 'spreadsheet'
+                                  ? '.xlsx'
+                                  : '.pdf';
+                            const primary = a.files.find((path) =>
+                              path.endsWith(extension),
+                            );
+                            const otherFiles = a.files.filter(
+                              (path) => path !== primary,
+                            );
+                            return (
+                              <article key={a.id}>
+                                <div className="artifact-type">
+                                  <FileText size={20} />
+                                  <span>
+                                    {extension === '.pptx'
+                                      ? 'PowerPoint'
+                                      : extension === '.xlsx'
+                                        ? 'Excel'
+                                        : 'PDF'}
+                                  </span>
+                                </div>
+                                <h3>{a.title}</h3>
+                                <div className="artifact-actions">
+                                  {primary && (
+                                    <a
+                                      className="button-link"
+                                      href={downloadFile(primary)}
+                                    >
+                                      <Download size={14} />
+                                      {primary}
+                                    </a>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => readFile(a.preview)}
                                   >
-                                    <Download size={14} />
-                                    {f}
-                                  </a>
-                                ))}
-                            </div>
-                          </article>
-                        ))}
+                                    {t('Lire le contenu')}
+                                  </Button>
+                                </div>
+                                {otherFiles.length > 0 && (
+                                  <details className="artifact-formats">
+                                    <summary>
+                                      {t('Autres formats')}
+                                      <ChevronDown size={13} />
+                                    </summary>
+                                    <div>
+                                      {otherFiles.map((path) => (
+                                        <a key={path} href={downloadFile(path)}>
+                                          <Download size={13} />
+                                          {path}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </details>
+                                )}
+                              </article>
+                            );
+                          })}
+                        </div>
                       </section>
                     )}
-                    <section className="panel">
-                      <h2>
+                    <details
+                      className="panel source-files"
+                      id="file-reader"
+                      open={sourceFilesOpen}
+                      onToggle={(event) =>
+                        setSourceFilesOpen(event.currentTarget.open)
+                      }
+                    >
+                      <summary>
                         <FileCode2 size={18} />
-                        {t('Fichiers du projet')}
-                      </h2>
+                        {t('Fichiers et sources')}
+                        <span>
+                          {active.files.length} {t('fichiers')}
+                        </span>
+                        <ChevronDown size={16} />
+                      </summary>
                       <div className="file-browser">
                         <div>
                           {active.files.map((f: string) =>
@@ -911,7 +1126,7 @@ export default function Home() {
                               )}
                         </pre>
                       </div>
-                    </section>
+                    </details>
                   </>
                 ) : (
                   <div className="panel empty-state">

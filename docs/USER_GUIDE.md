@@ -21,6 +21,16 @@ Each extracted page becomes a source with the filename, page number, and documen
 
 PowerPoint speaker notes, charts, and text inside images are not interpreted. Supply a PDF or readable screenshots when those contain important information. For PDFs with a text layer, OCR does not automatically recover every embedded visual element.
 
+## Drafts and project navigation
+
+Your brief, assignment URL, available time, generation setting, and imported document text are saved in the current browser as you edit. **Draft saved** confirms persistence. Reloading restores the draft; **Clear** resets it, and **Undo** restores the previous content until your next edit. When browser storage is unavailable, the form remains usable and reports that the draft could not be saved.
+
+Uploaded source drafts expire on the server after 24 hours. Expired documents are excluded when restoring a browser draft, and a notice asks you to import them again. Clearing the form removes its browser copy; attached sources in existing projects remain unchanged.
+
+Search projects in the sidebar. On mobile, use the **Projects** toggle to open the list. A completed project opens on **Results**, where reports, slides, and spreadsheets have direct download buttons and optional alternative formats. **Read content** opens the source reader; the full file list stays collapsed until needed.
+
+While a project runs, the overview shows its current step, what that step does, and elapsed time. You can prepare another brief, but only one project can run at a time. **View progress** returns to the active run. Completing a run opens its results if you are still on its overview.
+
 ## Language and examples
 
 The **Français / English** selector changes the interface and is remembered in the current browser. New Codex projects use the selected output language. Existing projects and uploaded content retain their original text.
@@ -58,6 +68,7 @@ Run `npm audit` against your checkout to see the current advisory status. The re
 ## Data and execution
 
 - Working files live in `.hackpilot/<mission-id>/`. The directory is ignored by Git.
+- The current assignment draft, including extracted text, is stored in browser local storage. Use **Clear** or remove the site’s browser data to remove that copy.
 - Original uploads are not retained. Extracted document drafts expire after 24 hours; source copies attached to a project remain with it.
 - Extraction and OCR run locally with models installed as dependencies. Codex generation sends the brief, extracted text, and content being generated or reviewed through the configured provider connection.
 - The API and preview servers bind to `127.0.0.1`. Preview pages use a separate port with a content policy that blocks external connections.

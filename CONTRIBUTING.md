@@ -57,4 +57,8 @@ The final command reads the case-study project recorded by the previous command.
 
 Use `npm run format -- <changed-files>` to format files you edit. Keep pull requests focused and explain the user-visible behavior, relevant checks, and remaining limitations.
 
+## Publishing versions
+
+Increment the patch version when publishing an updated README together with new or updated project files. Keep the README, `package.json`, both root version fields in `package-lock.json`, and the API health version in sync. Capture README screenshots from the current interface in English, using synthetic examples. Record user-visible changes in `CHANGELOG.md`.
+
 The project is distributed under the [MIT license](LICENSE).

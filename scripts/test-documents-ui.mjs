@@ -73,13 +73,11 @@ try {
     .getByRole('button', { name: 'Remove document slide.png', exact: true })
     .click();
   assert.equal(await page.locator('.uploaded-document').count(), 2);
-  await page
-    .locator('#document-files')
-    .setInputFiles({
-      name: 'invalid.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('invalid'),
-    });
+  await page.locator('#document-files').setInputFiles({
+    name: 'invalid.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('invalid'),
+  });
   await page
     .getByText('Unsupported format. Use PDF, PPTX, PNG or JPEG.')
     .waitFor();
@@ -160,6 +158,7 @@ try {
   checks.push(
     'Document-only project completes and retains four page sources and English delivery headings',
   );
+  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
   await page.locator('.source-excerpt').first().locator('summary').click();
   await page
     .locator('.source-excerpt')

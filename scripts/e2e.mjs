@@ -37,8 +37,9 @@ try {
   await page
     .getByText('Prototype vérifié', { exact: true })
     .waitFor({ timeout: 60000 });
+  assert.equal(await page.evaluate(() => window.scrollY), 0);
   results.push(
-    'Mission lancée depuis l’interface et terminée sans intervention',
+    'Mission lancée depuis l’interface, terminée et résultats affichés en haut de page',
   );
   const id = (await (await fetch(base + '/api/missions')).json())[0].id;
   const m = await (await fetch(base + '/api/missions/' + id)).json();
@@ -51,13 +52,14 @@ try {
     })
     .waitFor();
   results.push('Preuves des tests accessibles dans l’interface');
-  await page.getByRole('tab', { name: 'Aperçu & code' }).click();
+  await page.getByRole('tab', { name: 'Résultats' }).click();
   const frame = page.frameLocator('iframe[title="Prototype généré"]');
   await frame.locator('#food').fill('Courges du potager');
   await frame.locator('#quantity').fill('3');
   await frame.getByRole('button', { name: /Publier le don/ }).click();
   await frame.getByText('Courges du potager', { exact: true }).waitFor();
   results.push('Prototype interactif dans son aperçu isolé');
+  await page.locator('.source-files > summary').click();
   await page.getByRole('button', { name: 'app.js', exact: true }).click();
   await page
     .locator('.file-browser pre')
@@ -78,7 +80,7 @@ try {
   );
   assert.match(strFromU8(zip['hackpilot/submission.md']), /PASS/);
   results.push('Export ZIP valide, code et preuves inclus, secrets exclus');
-  await page.getByRole('tab', { name: 'Livrables' }).click();
+  await page.getByRole('tab', { name: 'Dossier final' }).click();
   await page.getByText('Le prototype est local.', { exact: false }).waitFor();
   results.push('Limites du rendu affichées');
   await page.getByRole('tab', { name: 'Synthèse' }).click();
@@ -99,6 +101,7 @@ try {
   });
   results.push('Mission utilisable sur mobile sans débordement');
   await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('.mobile-projects-toggle').click();
   await page
     .locator('.mission-link')
     .filter({ hasText: 'Atelier local' })
