@@ -1,5 +1,7 @@
 # HackPilot
 
+**v0.0.1** · first project using Astra :)
+
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
 HackPilot is a local workspace that reads an assignment, chooses an approach, produces the relevant files, checks them, and attempts corrections. It supports reports, slide decks, spreadsheets, and interactive web prototypes, with an English / French interface.
