@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { Store } from '../engine/store.mjs';
 import { Runner } from '../engine/runner.mjs';
 import { fixturePlan, fixtureBundle } from '../engine/fixture.mjs';
+import { qualityResponder } from './quality-fixture.mjs';
 async function harness(fn, options = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'hp-runner-'));
   const store = new Store(dir);
@@ -36,8 +37,7 @@ const passed = {
   results: [{ name: 'parcours', passed: true, detail: 'ok' }],
 };
 test('corrige un échec réel puis conserve les scénarios d’origine', async () => {
-  let calls = 0,
-    checks = 0;
+  let checks = 0;
   await harness(
     async (store, runner) => {
       const m = await store.create(input);
@@ -45,7 +45,7 @@ test('corrige un échec réel puis conserve les scénarios d’origine', async (
       await done(runner);
       assert.equal(m.status, 'completed');
       assert.equal(m.repairs, 1);
-      assert.equal(checks, 2);
+      assert.equal(checks, 3);
       assert.equal(
         m.originalTests[0].name,
         'Publier un don et le retrouver après rechargement',
@@ -53,14 +53,7 @@ test('corrige un échec réel puis conserve les scénarios d’origine', async (
       assert.match(m.submission, /PASS/);
     },
     {
-      generate: async () => {
-        calls++;
-        return calls === 1
-          ? fixturePlan()
-          : calls === 2 || calls === 3
-            ? fixtureBundle()
-            : { summary: 'Relu', gaps: [], mustFix: [] };
-      },
+      generate: qualityResponder(fixturePlan(), fixtureBundle(), {}),
       verify: async () =>
         ++checks === 1
           ? {
@@ -92,7 +85,6 @@ test('un fournisseur en erreur ne déclenche jamais le mode démonstration', asy
   );
 });
 test('un échec persistant termine après deux corrections sans fausse réussite', async () => {
-  let calls = 0;
   await harness(
     async (store, runner) => {
       const m = await store.create(input);
@@ -103,7 +95,7 @@ test('un échec persistant termine après deux corrections sans fausse réussite
       assert.equal(m.submission, undefined);
     },
     {
-      generate: async () => (++calls === 1 ? fixturePlan() : fixtureBundle()),
+      generate: qualityResponder(fixturePlan(), fixtureBundle(), {}),
       verify: async () => ({
         passed: false,
         results: [{ name: 'parcours', passed: false, detail: 'erreur' }],
@@ -167,20 +159,15 @@ test('transmet les slides et la langue anglaise au générateur et au dossier', 
       assert.match(prompts[0], /Réponds en anglais/);
       assert.match(prompts[0], /rules.pdf/);
       assert.match(prompts[0], /three minute demo/);
-      assert.match(prompts[1], /livrables retenus en anglais/);
-      assert.match(prompts[2], /livrables en anglais/);
+      assert.ok(prompts.some((p) => /livrables retenus en anglais/.test(p)));
+      assert.ok(prompts.some((p) => /réponse JSON en anglais/.test(p)));
       assert.match(m.submission, /## Known limitations/);
       assert.equal(m.sources[0].page, 1);
     },
     {
-      generate: async ({ prompt }) => {
-        prompts.push(prompt);
-        return prompts.length === 1
-          ? fixturePlan()
-          : prompts.length === 2
-            ? fixtureBundle()
-            : { summary: 'Reviewed', gaps: [], mustFix: [] };
-      },
+      generate: qualityResponder(fixturePlan(), fixtureBundle(), {
+        onCall: ({ prompt }) => prompts.push(prompt),
+      }),
       verify: async () => passed,
     },
   );

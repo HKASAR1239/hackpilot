@@ -1,6 +1,6 @@
 # HackPilot
 
-**v0.0.5** · first project using Astra :)
+**v0.0.6** · first project using Astra :)
 
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
@@ -17,7 +17,8 @@ _English interface. Switch between English and French from the top bar._
 - **Read the assignment.** Paste a brief, provide a public event URL, or import PDF, PowerPoint, and image files. Review extracted text and page references before starting.
 - **Choose useful deliverables.** Required formats take priority. HackPilot can propose a website, simulator, or another addition when it helps answer the assignment and fits the available time.
 - **Produce editable files.** Download reports, PowerPoint decks, Excel models with formulas, and web prototype source code.
-- **Check and correct.** Reopen exported documents, recompute calculations, run browser scenarios, and review the response against the brief. Up to two repair attempts are available.
+- **Build from a shared reference.** Compare alternatives, trace facts to source quotations, label assumptions, evaluate common calculations, define executable input-change checks for spreadsheets, and define acceptance criteria before production. A separate capability review checks that the criteria can be met by the supported formats.
+- **Check and correct.** Save and test each deliverable separately, then review the complete response against its criteria and cross-check consistency. Corrections target the affected deliverables; up to two repair rounds are available.
 - **Pick up where you left off.** Your brief and settings are saved in the browser. Reloading also restores the open project, selected tab, and source file without restarting generation. Search previous projects and open completed work directly on its results.
 - **Keep the work inspectable.** Follow the current step and elapsed time, read the execution log, sources, and limitations, stop a run, resume interrupted work, and export the project as a ZIP.
 
@@ -59,14 +60,15 @@ A project can combine these formats. A website is selected when the assignment r
 ## How a run works
 
 ```text
-Assignment → Sources → Plan → Production → Checks & repairs → Export
+Assignment → Sources → Plan → Shared reference → Saved deliverables → Review & repairs → Export
 ```
 
 1. Read the brief, uploaded documents, and available public rules or resource pages.
 2. Identify required outputs and constraints. Use a focused approach for a case study, or compare up to three concepts when the topic leaves room for a choice.
-3. Generate structured content and materialize the selected files.
-4. Run format-specific checks, review the answer, and attempt repairs when needed.
-5. Package the files with the plan, sources, verification results, and remaining limitations.
+3. Challenge the approach and create a shared reference: supported facts, assumptions, independently evaluated calculations, failure modes, and criteria linked to requirements.
+4. Produce and check one deliverable at a time. Prepare calculation models before the reports and slides that use them. Save each checked result so an interruption does not discard it.
+5. Review the complete set against every acceptance criterion. Record evidence, identify inconsistencies, and repair affected deliverables. Unresolved required checks prevent completion.
+6. Export files, sources, reference, review, execution diagnostics, and remaining limitations.
 
 The **available time** field helps scope the project. A generation attempt has its own two-hour limit. One project runs at a time; interrupted projects remain on disk and can be resumed within their remaining budgets.
 
@@ -74,11 +76,23 @@ The **available time** field helps scope the project. A generation attempt has i
 
 Projects are stored in `.hackpilot/`, which is excluded from Git. The current assignment draft, including extracted document text, is also saved in browser local storage until you clear it or remove site data. Document extraction and OCR run locally. During Codex generation, the brief, extracted source text, and content being generated or reviewed are sent through your configured Codex connection. Your account's usage limits apply.
 
-Generation uses the model configured in Codex and **`xhigh` reasoning** by default for planning, production, review, and repairs. Set `HACKPILOT_MODEL` to select a model and `HACKPILOT_REASONING_EFFORT=high` to use a lower effort. The selected model must support the requested effort. Each attempt records its requested settings in the activity log; existing results are not regenerated automatically.
+Generation uses the model configured in Codex, with **`xhigh` for strategy and review** and **`high` for deliverable production and repairs**. Set `HACKPILOT_MODEL`, `HACKPILOT_REASONING_EFFORT`, and `HACKPILOT_PRODUCTION_EFFORT` to override these choices. The selected model must support the requested effort. Each attempt records its requested settings in the activity log; existing results are not regenerated automatically.
 
 The app binds to loopback. Generated web previews use a separate local port and a content policy that blocks external connections. Generated programs are not run as shell commands; document exports are rendered from validated structured data.
 
 See the [user guide](docs/USER_GUIDE.md) for upload limits, data retention, generation budgets, configuration, and troubleshooting.
+
+## Comparing against one prompt
+
+The workflow is designed to improve completeness, consistency, and recovery. Those mechanisms do not establish that it beats a good single prompt on every assignment.
+
+An opt-in evaluation uses public synthetic briefs for a capacity-constrained shuttle, a museum arrival experience, and an equipment-lending prototype. Both arms receive the same brief, sources, model, fixed plan, output contracts, and export checks. The baseline gets a strong one-response prompt with a self-check instruction. The pipeline receives additional calls; the report includes time, tokens, repairs, mechanical checks, and blinded outputs for content assessment. This comparison starts after planning and does not evaluate concept selection.
+
+```sh
+HACKPILOT_MODEL=gpt-6-astra npm run eval:quality -- --live --case shuttle
+```
+
+Omit `--case` to run all three. This uses your Codex account. Results stay in the ignored `validation/` directory. See the [evaluation protocol](docs/EVALUATION.md) for interpretation and limitations.
 
 ## Current scope
 
@@ -102,6 +116,8 @@ npx tsc --noEmit
 npm test
 npm run build
 ```
+
+CI also runs the isolated workspace recovery and quality-evidence browser checks after the build.
 
 With the app running, `npm run test:e2e` exercises the demo workflow without model calls. Tests that use a real Codex account are separate and opt-in. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 

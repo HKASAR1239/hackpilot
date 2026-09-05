@@ -1,4 +1,8 @@
 const messages = {
+  'La limite de 30 minutes pour cet appel a été atteinte. Les livrables enregistrés sont conservés.':
+    'The 30-minute limit for this call was reached. Saved deliverables are preserved.',
+  'La génération Codex a échoué. Consultez le diagnostic de cet appel.':
+    'Codex generation failed. Check the diagnostics for this call.',
   'Dossier assemblé : livrables, sources, vérifications et limites.':
     'Package assembled: deliverables, sources, checks and limitations.',
   'Production des livrables': 'Deliverable production',

@@ -31,7 +31,7 @@ Reloading restores the project, tab, and source file you were viewing. A run con
 
 Search projects in the sidebar. On mobile, use the **Projects** toggle to open the list. A completed project opens on **Results**, where reports, slides, and spreadsheets have direct download buttons and optional alternative formats. **Read content** opens the source reader; the full file list stays collapsed until needed.
 
-While a project runs, the overview shows its current step, what that step does, and elapsed time. You can prepare another brief, but only one project can run at a time. **View progress** returns to the active run. Completing a run opens its results if you are still on its overview.
+While a project runs, the overview shows its current activity, elapsed time, saved deliverable count, and call diagnostics. The last received event is transport evidence, not a measure of model progress. The decisions and evidence panel exposes compared approaches, source-backed facts, assumptions, and acceptance criteria. Criteria show model-review evidence after review; they do not claim field validation. You can prepare another brief, but only one project can run at a time. **View progress** returns to the active run. Completing a run opens its results if you are still on its overview.
 
 ## Language and examples
 
@@ -59,7 +59,7 @@ Internal concept scores are planning heuristics, not jury scores or probabilitie
 
 DOCX and video generation are outside the current scope. Missing integrations and unsupported deliverables should appear in the project's limitations.
 
-Document checks reopen exported files and inspect structure and content. Spreadsheet formulas are evaluated by a bounded arithmetic parser without JavaScript execution. Web checks combine engine-defined browser checks with model-proposed interaction scenarios. The original web scenarios are retained during repairs. These checks and the model's content review are useful evidence, not an exhaustive audit or domain validation.
+Document checks reopen exported files and inspect structure and content. Spreadsheet formulas are evaluated by a bounded arithmetic parser without JavaScript execution. The shared reference can define changed-input checks with explicit expected results. The engine reads formulas from the exported workbook, applies those inputs in memory, evaluates them and records actual versus expected results without changing the file. It also records the worksheet headers and cell values read back from Excel. This is independent formula evaluation, not native Excel recalculation. Web checks combine engine-defined browser checks with model-proposed interaction scenarios. The original web scenarios are retained during repairs. These checks and the model's content review are useful evidence, not an exhaustive audit or domain validation.
 
 ### Known dependency advisories
 
@@ -81,31 +81,34 @@ Do not put credentials in a brief. Project exports include source material and s
 
 ## Budgets and recovery
 
-| Limit                                | Scope                              |
-| ------------------------------------ | ---------------------------------- |
-| One active project                   | Per server                         |
-| Two hours                            | Per execution attempt              |
-| Up to two hours                      | Per Codex step, within the attempt |
-| Nine model calls                     | Per project                        |
-| 300,000 input / 60,000 output tokens | Per project, checked between calls |
-| Two repairs                          | Per project                        |
+| Limit                                 | Scope                              |
+| ------------------------------------- | ---------------------------------- |
+| One active project                    | Per server                         |
+| Two hours                             | Per execution attempt              |
+| Thirty minutes                        | Per model call, within the attempt |
+| Twenty-four model calls               | Per project                        |
+| 600,000 input / 180,000 output tokens | Per project, checked between calls |
+| Two repairs                           | Per project                        |
 
 An individual call may cross a token threshold before the next check. Token limits are not a monetary cap; Codex account billing and usage limits still apply. The assignment's **available time** field guides project scope and does not change the engine's two-hour attempt limit. The overall deadline includes all generation, verification, and repair steps; two hours is not added for each step.
 
-You can stop an active project. After a server restart, unfinished projects are marked interrupted. Resume uses saved work and the remaining project budget; it does not reset model usage or repair limits.
+You can stop an active project. After a server restart, unfinished projects are marked interrupted. Resume uses saved work and the remaining project budget; it does not reset model usage or repair limits. A saved plan and valid reference are reused. Checked deliverables are skipped, and pending targeted repairs are resumed without charging the same repair round twice. Before production, a separate model review checks the proposed criteria against the supported formats. It can clarify internally proposed criteria while retaining their IDs, source-requirement links and reference calculations; the original criteria and corrections are kept in the exported reference. Explicit unsupported requirements are reported before generation. A missing required verification blocks completion; it does not automatically spend repair rounds rewriting a file without a confirmed content defect. Results are published atomically; existing unchanged document files retain their bytes. An interrupted call itself cannot resume hidden model reasoning: only that unfinished deliverable is requested again. The new execution attempt receives a fresh two-hour deadline.
+
+Each model call stores a redacted diagnostic under `generation/call-*.json`, including timestamps, requested effort, event counts, reported usage, provider session ID, and errors. The UI shows the latest call. Telemetry excludes item content and internal reasoning; generated response files and project content remain in local working storage. Usage is recorded when the provider reports it, so an interrupted call may have consumed unreported tokens. Local counters are not billing records.
 
 ## Configuration
 
-| Variable                     | Default                                              | Purpose                             |
-| ---------------------------- | ---------------------------------------------------- | ----------------------------------- |
-| `PORT`                       | `4317` in production, `4318` for the development API | API / production server port        |
-| `HACKPILOT_PREVIEW_PORT`     | `4319`                                               | Isolated preview server port        |
-| `HACKPILOT_DATA_DIR`         | `.hackpilot` in the project directory                | Local working data                  |
-| `HACKPILOT_CODEX_BIN`        | Project-installed Codex                              | Alternative Codex executable        |
-| `HACKPILOT_MODEL`            | Model configured in Codex                            | Generation model override           |
-| `HACKPILOT_REASONING_EFFORT` | `xhigh`                                              | Reasoning for every generation step |
+| Variable                      | Default                                              | Purpose                            |
+| ----------------------------- | ---------------------------------------------------- | ---------------------------------- |
+| `PORT`                        | `4317` in production, `4318` for the development API | API / production server port       |
+| `HACKPILOT_PREVIEW_PORT`      | `4319`                                               | Isolated preview server port       |
+| `HACKPILOT_DATA_DIR`          | `.hackpilot` in the project directory                | Local working data                 |
+| `HACKPILOT_CODEX_BIN`         | Project-installed Codex                              | Alternative Codex executable       |
+| `HACKPILOT_MODEL`             | Model configured in Codex                            | Generation model override          |
+| `HACKPILOT_REASONING_EFFORT`  | `xhigh`                                              | Strategy, reference and review     |
+| `HACKPILOT_PRODUCTION_EFFORT` | `high`                                               | Deliverable production and repairs |
 
-Planning, production, content review, and repairs use the same requested reasoning effort. Supported configuration values are `low`, `medium`, `high`, `xhigh`, and `max`; the selected Codex model must support the value. For example, `HACKPILOT_MODEL=gpt-6-astra HACKPILOT_REASONING_EFFORT=xhigh npm start` explicitly selects Astra with xhigh reasoning. The activity log records the requested model and effort at the start of each attempt. If no model override is supplied, the log identifies the Codex configuration as the model source. A settings change applies after restarting the server and starting a new attempt; it does not revise already saved plans or deliverables. Create a new project with the same brief and documents for a fresh analysis.
+Strategy and review use the reasoning effort setting; production and targeted repairs use the production effort setting. Supported configuration values are `low`, `medium`, `high`, `xhigh`, and `max`; the selected Codex model must support the value. For example, `HACKPILOT_MODEL=gpt-6-astra HACKPILOT_REASONING_EFFORT=xhigh npm start` explicitly selects Astra with xhigh reasoning. The activity log records the requested model and effort at the start of each attempt. If no model override is supplied, the log identifies the Codex configuration as the model source. A settings change applies after restarting the server and starting a new attempt; it does not revise already saved plans or deliverables. Create a new project with the same brief and documents for a fresh analysis.
 
 The server does not load `.env` files automatically. Set variables in the launch environment. The development UI and its API proxy use the ports in `vite.config.ts`; changing the development API port also requires updating that proxy.
 

@@ -2178,3 +2178,66 @@ h3 {
     font-size: 13px;
   }
 }
+
+/* Reference dossier and observed progress */
+.quality-evidence {
+  margin-top: 20px;
+}
+.quality-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 20px 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.quality-evidence details,
+.call-diagnostics {
+  border-top: 1px solid var(--border);
+  padding: 14px 0;
+}
+.quality-evidence summary,
+.call-diagnostics summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.quality-entry {
+  margin: 18px 0;
+}
+.quality-entry p,
+.quality-criterion p {
+  margin: 6px 0;
+}
+.quality-entry small,
+.quality-criterion small,
+.quality-note {
+  color: var(--muted-foreground);
+}
+.quality-criterion {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.quality-criterion > svg {
+  flex: none;
+  margin-top: 3px;
+}
+.quality-criterion > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.checkpoint-progress,
+.call-diagnostics {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.call-diagnostics {
+  margin-top: 10px;
+}
+.call-diagnostics p {
+  overflow-wrap: anywhere;
+  margin: 8px 0;
+}

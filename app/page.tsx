@@ -16,6 +16,7 @@ import {
   rememberWorkspaceView,
 } from '@/lib/workspace-view.mjs';
 import { RunProgress } from '@/components/run-progress';
+import { QualityEvidence } from '@/components/quality-evidence';
 import { DocumentUpload, warningLabels } from '@/components/document-upload';
 import {
   ArrowUpRight,
@@ -985,6 +986,7 @@ export default function Home() {
                     </div>
                   </section>
                 </div>
+                <QualityEvidence mission={active} />
                 <section className="panel sources">
                   <h2>
                     <Link2 size={18} />

@@ -15,6 +15,7 @@ import { casePlan, caseBundle, caseBrief } from './case-fixture.mjs';
 import { fixturePlan, fixtureBundle } from '../engine/fixture.mjs';
 import { Runner } from '../engine/runner.mjs';
 import { Store } from '../engine/store.mjs';
+import { qualityResponder } from './quality-fixture.mjs';
 const sources = [{ id: 'S1', text: caseBrief, title: 'Énoncé', url: null }];
 test('une étude de cas accepte une approche et respecte les livrables retenus', () => {
   const plan = normalizePlan(casePlan(), sources),
@@ -132,19 +133,17 @@ test('mission documentaire complète et réparation sans tests de site', async (
   try {
     const store = new Store(dir);
     await store.init();
-    let calls = 0;
+    let malformed = true;
     const runner = new Runner(store, 'http://127.0.0.1:9999', {
-      generate: async () => {
-        calls++;
-        if (calls === 1) return casePlan();
-        if (calls === 2) {
-          const b = caseBundle();
-          b.artifacts[1].slides.pop();
-          return b;
-        }
-        if (calls === 3) return caseBundle();
-        return { summary: 'Questions traitées', mustFix: [], gaps: [] };
-      },
+      generate: qualityResponder(casePlan(), caseBundle(), {
+        onBuild: (_request, part, d) => {
+          if (d.kind === 'presentation' && malformed) {
+            malformed = false;
+            part.artifacts[0].slides.pop();
+          }
+          return part;
+        },
+      }),
       verify: async () => {
         throw new Error('Un site ne doit pas être testé.');
       },

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.6 — 2026-09-05
+
+- Add a shared reference with alternatives, source quotations, explicit assumptions, evaluated calculations, and acceptance criteria.
+- Check proposed quality criteria against actual format capabilities before production, retaining the original criteria and corrections for inspection.
+- Produce, export, and check deliverables separately; preserve checked files and resume only unfinished work.
+- Execute declared changed-input checks on formulas read from exported spreadsheets and retain the actual cell evidence.
+- Review all criteria and cross-deliverable consistency, with targeted repairs and preserved original browser scenarios.
+- Use xhigh for strategy/reference/review and high for production/repairs, with separate configuration overrides.
+- Preserve redacted per-call telemetry and errors through cancellation. Bound each call to 30 minutes within the two-hour attempt.
+- Allow 24 calls, 600,000 reported input tokens and 180,000 reported output tokens per project; retain budgets on resume.
+- Show saved progress, decisions, evidence, and call diagnostics in the bilingual interface and project exports.
+- Add recovery/diagnostic regressions and a reproducible comparison against a strong one-prompt baseline on synthetic briefs.
+
 ## 0.0.5 — 2026-09-05
 
 - Use xhigh reasoning by default throughout planning, production, review, and repairs.

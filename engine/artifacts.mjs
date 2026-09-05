@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import PptxGenJS from 'pptxgenjs';
+import { verifyCalculationChecks } from './calculation-checks.mjs';
 import ExcelJS from 'exceljs';
 import { unzipSync, strFromU8 } from 'fflate';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
@@ -466,10 +467,17 @@ export async function materializeArtifacts(
     await browser?.close();
   }
 }
-export async function verifyArtifacts(bundle, plan, sources, dir) {
+export async function verifyArtifacts(
+  bundle,
+  plan,
+  sources,
+  dir,
+  calculationChecks = [],
+) {
   const results = [];
   for (const a of bundle.artifacts || []) {
     const d = deliverablesFor(plan).find((d) => d.id === a.id);
+    const evidence = [];
     try {
       const md = await readFile(join(dir, a.id + '.md'), 'utf8');
       if (md !== artifactMarkdown(a, d.kind, sources))
@@ -518,6 +526,15 @@ export async function verifyArtifacts(bundle, plan, sources, dir) {
         for (const s of a.sheets) {
           const ws = wb.getWorksheet(s.name),
             values = calculateRows(s.rows);
+          evidence.push({
+            sheet: s.name,
+            headers: ws?.getRow(1).values,
+            cells: s.rows.map((r, i) => ({
+              label: r.label,
+              cell: 'B' + (i + 2),
+              value: ws?.getCell('B' + (i + 2)).value,
+            })),
+          });
           for (const [i, r] of s.rows.entries()) {
             const cell = ws?.getCell('B' + (i + 2));
             if ((r.formula ? cell?.result : cell?.value) !== values[i])
@@ -536,15 +553,25 @@ export async function verifyArtifacts(bundle, plan, sources, dir) {
       }
       results.push({
         name: d.title,
+        deliverableIds: [d.id],
         passed: true,
+        evidence,
         detail:
           d.kind === 'spreadsheet'
             ? 'Fichier Excel relu ; formules recalculées et résultats conservés vérifiés.'
             : 'Fichiers relus ; contenu et pages contrôlés.',
       });
     } catch (e) {
-      results.push({ name: d.title, passed: false, detail: e.message });
+      results.push({
+        name: d.title,
+        deliverableIds: [d.id],
+        passed: false,
+        detail: e.message,
+      });
     }
   }
+  results.push(
+    ...(await verifyCalculationChecks(calculationChecks, bundle, dir)),
+  );
   return { passed: results.every((r) => r.passed), screenshot: false, results };
 }

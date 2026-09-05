@@ -1,4 +1,10 @@
-import { EXECUTION_LIMIT_MINUTES } from '../lib/execution-limits.mjs';
+import {
+  EXECUTION_LIMIT_MINUTES,
+  CALL_LIMIT_MINUTES,
+  MAX_CALLS,
+  MAX_INPUT,
+  MAX_OUTPUT,
+} from '../lib/execution-limits.mjs';
 import http from 'node:http';
 import { readFile, realpath } from 'node:fs/promises';
 import { resolve, join, extname, sep } from 'node:path';
@@ -188,11 +194,18 @@ export async function createApp({
       if (path === '/api/health') {
         reply(res, 200, {
           ok: true,
-          version: '0.0.5',
+          version: '0.0.6',
           providers: await capabilities(),
           generation: generationSettings(),
           active: runner.running.size,
-          limits: { minutes: EXECUTION_LIMIT_MINUTES, repairs: 2, calls: 9 },
+          limits: {
+            minutes: EXECUTION_LIMIT_MINUTES,
+            callMinutes: CALL_LIMIT_MINUTES,
+            repairs: 2,
+            calls: MAX_CALLS,
+            inputTokens: MAX_INPUT,
+            outputTokens: MAX_OUTPUT,
+          },
           scope: 'adaptive-deliverables',
         });
         return;
@@ -335,6 +348,7 @@ export async function createApp({
             JSON.stringify(
               {
                 provider: m.provider,
+                generationSettings: m.generationSettings,
                 createdAt: m.createdAt,
                 usage: m.usage,
                 sources: m.sources.map(({ text: _text, ...s }) => s),
@@ -343,6 +357,18 @@ export async function createApp({
               2,
             ),
           );
+          if (m.design)
+            files['hackpilot/reference.json'] = strToU8(
+              JSON.stringify(m.design, null, 2),
+            );
+          if (m.review)
+            files['hackpilot/review.json'] = strToU8(
+              JSON.stringify(m.review, null, 2),
+            );
+          if (m.calls)
+            files['hackpilot/calls.json'] = strToU8(
+              JSON.stringify(m.calls, null, 2),
+            );
           const zip = zipSync(files);
           res.writeHead(200, {
             'Content-Type': 'application/zip',

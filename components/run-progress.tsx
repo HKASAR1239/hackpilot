@@ -50,12 +50,49 @@ export function RunProgress({ mission }: { mission: Mission }) {
               {t('Étape')} {current + 1} / {steps.length}
             </span>
             <h2>{t(steps[current])}</h2>
-            <p>{t(descriptions[current])}</p>
+            <p>{mission.activity?.title || t(descriptions[current])}</p>
           </div>
           <span className="elapsed-time">
             <Clock3 size={15} /> {duration} <small>{t('écoulées')}</small>
           </span>
         </div>
+      )}
+      {mission.production && (
+        <p className="checkpoint-progress">
+          {
+            Object.values(mission.production.checkpoints).filter(
+              (c) => c.status === 'checked',
+            ).length
+          }
+          /{mission.plan?.deliverables?.length || 1}{' '}
+          {t('livrables enregistrés et contrôlés')}
+        </p>
+      )}
+      {mission.currentCall && (
+        <details className="call-diagnostics">
+          <summary>
+            {t('Détails de l’appel')} · {mission.currentCall.reasoningEffort}
+          </summary>
+          <p>
+            {t('Début')} :{' '}
+            {new Date(mission.currentCall.startedAt).toLocaleTimeString()}
+          </p>
+          <p>
+            {t('Dernier événement reçu')} :{' '}
+            {mission.currentCall.lastEventAt
+              ? new Date(mission.currentCall.lastEventAt).toLocaleTimeString()
+              : t('En attente')}
+          </p>
+          {running && (
+            <p>
+              {t('Le délai écoulé ne mesure pas la progression du modèle.')}
+            </p>
+          )}
+          {(mission.currentCall.errors || []).map((e, i) => (
+            <p key={i}>{e}</p>
+          ))}
+          {mission.currentCall.error && <p>{mission.currentCall.error}</p>}
+        </details>
       )}
       <ol className="run-strip">
         {steps.map((step, index) => {
