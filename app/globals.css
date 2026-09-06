@@ -2159,14 +2159,17 @@ h3 {
     line-height: 1.7;
   }
   .results-summary {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
     padding: 14px;
   }
   .results-summary > div:nth-child(2) {
     flex: 1;
   }
   .results-summary button {
-    margin-left: 47px;
+    grid-column: 2;
+    justify-self: start;
+    margin-left: 0;
   }
   .results-summary h2 {
     font-size: 14px;

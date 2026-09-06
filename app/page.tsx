@@ -915,7 +915,8 @@ export default function Home() {
               <div>
                 <span>{t('Corrections')}</span>
                 <strong>
-                  {active.repairs || 0} <small>/ 2</small>
+                  {active.repairs || 0}{' '}
+                  <small>/ {active.generationBudget?.repairs ?? 2}</small>
                 </strong>
               </div>
             </div>
