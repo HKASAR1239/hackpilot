@@ -1,4 +1,6 @@
 const messages = {
+  'La connexion au modèle a échoué après plusieurs tentatives. Les résultats enregistrés sont conservés. Vérifiez le diagnostic avant de reprendre.':
+    'The model connection failed after several attempts. Saved results are preserved. Check the diagnostics before resuming.',
   'Pertinence pour le sujet et les utilisateurs visés':
     'Relevance to the assignment and intended user',
   'Justesse, faisabilité et résultat utilisable':

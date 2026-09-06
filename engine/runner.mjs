@@ -1125,6 +1125,11 @@ export class Runner {
       await this.stage(m, 1, 'running');
       if (!demo) await this.prepareRubric(m, language, signal);
       if (!m.plan) {
+        await this.activity(
+          m,
+          'Analyse du sujet et comparaison des approches.',
+          'Analyzing the brief and comparing approaches.',
+        );
         m.plan = normalizeMissionPlan(
           demo
             ? fixturePlan()

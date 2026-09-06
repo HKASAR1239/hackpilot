@@ -295,5 +295,7 @@
   "Versions contrôlées conservées": "Saved checked versions",
   "Télécharger cette version": "Download this version",
   "Traitement adapté au délai": "Work scoped to your deadline",
-  "Une version d’essai est en cours. La version contrôlée précédente reste disponible au téléchargement.": "A trial version is in progress. The previous checked version remains available to download."
+  "Une version d’essai est en cours. La version contrôlée précédente reste disponible au téléchargement.": "A trial version is in progress. The previous checked version remains available to download.",
+  "Connexion au modèle interrompue. Tentative de reconnexion en cours ; aucun résultat supplémentaire n’est encore enregistré.": "The model connection was interrupted. Reconnecting; no additional result has been saved yet.",
+  "La reprise conserve cette échéance. Si le délai le permet, modifiez-la avant de relancer.": "Resuming keeps this deadline. If the assignment permits more time, change it before retrying."
 }

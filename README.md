@@ -1,6 +1,6 @@
 # HackPilot
 
-**v0.0.7** · first project using Astra :)
+**v0.0.8** · first project using Astra :)
 
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
@@ -80,9 +80,11 @@ The **Control room** shows rubric evidence, contributions, milestones and the de
 
 ## Local storage and generation
 
-Projects are stored in `.hackpilot/`, which is excluded from Git. The current assignment draft, including extracted document text, is also saved in browser local storage until you clear it or remove site data. Document extraction and OCR run locally. During Codex generation, the brief, extracted source text, and content being generated or reviewed are sent through your configured Codex connection. Your account's usage limits apply.
+Projects are stored in `.hackpilot/`, which is excluded from Git. The current assignment draft, including extracted document text, is also saved in browser local storage until you clear it or remove site data. Document extraction and OCR run locally. During Codex generation, the brief, extracted source text, and content being generated or reviewed are sent through the Codex provider connection described below. Your account's usage limits apply.
 
 Generation uses the model configured in Codex, with **`xhigh` for strategy and review** and **`high` for deliverable production and repairs**. For new projects with deadlines of an hour or less, requested xhigh/max calls use high effort to preserve production and verification time. The requested configuration and actual per-call effort are recorded. Set `HACKPILOT_MODEL`, `HACKPILOT_REASONING_EFFORT`, and `HACKPILOT_PRODUCTION_EFFORT` to override these choices. The selected model must support the requested effort. Each attempt records its requested settings in the activity log; existing results are not regenerated automatically.
+
+By default, HackPilot uses OpenAI HTTP/SSE with your existing Codex login. This avoids the WebSocket reconnect loops observed in the v0.0.7 live runs. The override applies only to child processes; your global Codex configuration is unchanged. Set `HACKPILOT_CODEX_TRANSPORT=configured` to use your own configured provider and transport. Reconnection errors appear during the call, and a failed turn cannot be treated as a successful response.
 
 The app binds to loopback. Generated web previews use a separate local port and a content policy that blocks external connections. Generated programs are not run as shell commands; document exports are rendered from validated structured data.
 

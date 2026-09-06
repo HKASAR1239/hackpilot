@@ -27,4 +27,5 @@ jobs:
       - run: node scripts/workspace-ui.mjs
       - run: node scripts/quality-ui.mjs
       - run: node scripts/adaptive-ui.mjs
+      - run: node scripts/recovery-ui.mjs
       - run: npm run test:e2e

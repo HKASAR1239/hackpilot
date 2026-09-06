@@ -108,6 +108,20 @@ export function ScheduleSummary({ mission }: { mission: Mission }) {
           </strong>
         </span>
       </div>
+      {minutes !== null &&
+        minutes < 10 &&
+        ['failed', 'cancelled', 'interrupted', 'paused', 'expired'].includes(
+          mission.status,
+        ) && (
+          <output>
+            {t(
+              'La reprise conserve cette échéance. Si le délai le permet, modifiez-la avant de relancer.',
+            )}{' '}
+            <a href={`#project=${mission.id}&tab=control`}>
+              {t('Modifier l’échéance')}
+            </a>
+          </output>
+        )}
       {mission.lastVerified && (
         <a
           className="verified-download"

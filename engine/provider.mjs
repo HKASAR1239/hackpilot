@@ -11,6 +11,9 @@ const local = resolve(
 );
 export const codexPath = process.env.HACKPILOT_CODEX_BIN || local;
 export function generationSettings(env = process.env) {
+  const transport = env.HACKPILOT_CODEX_TRANSPORT || 'http';
+  if (!['http', 'configured'].includes(transport))
+    throw new Error('HACKPILOT_CODEX_TRANSPORT: use http or configured.');
   const reasoningEffort = env.HACKPILOT_REASONING_EFFORT || 'xhigh';
   const productionEffort = env.HACKPILOT_PRODUCTION_EFFORT || 'high';
   for (const [key, value] of [
@@ -23,6 +26,7 @@ export function generationSettings(env = process.env) {
     model: env.HACKPILOT_MODEL || null,
     reasoningEffort,
     productionEffort,
+    transport,
   };
 }
 export async function capabilities() {
@@ -78,6 +82,7 @@ export async function generate({
     purpose,
     model: configuration.model,
     reasoningEffort: configuration.reasoningEffort,
+    transport: configuration.transport || 'http',
     timeoutMs,
     startedAt: new Date().toISOString(),
     status: 'starting',
@@ -121,6 +126,30 @@ export async function generate({
     '-',
   ];
   if (configuration.model) args.splice(1, 0, '--model', configuration.model);
+  // A per-process provider keeps the existing OpenAI login and official default
+  // endpoint, while using HTTP/SSE instead of the CLI's WebSocket transport.
+  // Reserved built-in providers cannot be overridden in Codex 0.153.4.
+  if (report.transport === 'http')
+    args.splice(
+      1,
+      0,
+      '-c',
+      'model_provider="hackpilot-http"',
+      '-c',
+      'model_providers.hackpilot-http.name="OpenAI HTTP"',
+      '-c',
+      'model_providers.hackpilot-http.requires_openai_auth=true',
+      '-c',
+      'model_providers.hackpilot-http.wire_api="responses"',
+      '-c',
+      'model_providers.hackpilot-http.supports_websockets=false',
+      '-c',
+      'model_providers.hackpilot-http.stream_max_retries=1',
+      '-c',
+      'model_providers.hackpilot-http.request_max_retries=2',
+      '-c',
+      'features.unbounded_connection_retries=false',
+    );
   let error, value;
   try {
     await new Promise((resolveCall, rejectCall) => {
@@ -136,6 +165,7 @@ export async function generate({
         killTimer,
         saveTimer,
         finished = false,
+        failedTurn = false,
         lastSaved = 0;
       report.pid = child.pid;
       report.status = 'running';
@@ -159,8 +189,14 @@ export async function generate({
       };
       const recordError = (message) => {
         const safe = redactDiagnostic(message);
-        if (safe && !report.errors.includes(safe))
-          report.errors = [...report.errors, safe].slice(-8);
+        if (!safe || report.errors.includes(safe)) return;
+        report.errors = [...report.errors, safe].slice(-8);
+        if (
+          /reconnect|stream disconnected|idle timeout waiting for/i.test(safe)
+        ) {
+          report.connectionStatus = 'retrying';
+          report.lastConnectionErrorAt = new Date().toISOString();
+        }
       };
       const consume = (line) => {
         try {
@@ -174,6 +210,12 @@ export async function generate({
             report.usage = event.usage;
             onUsage?.(event.usage);
           }
+          if (
+            event.type === 'item.completed' ||
+            event.type === 'turn.completed'
+          )
+            report.connectionStatus = 'receiving';
+          if (event.type === 'turn.failed') failedTurn = true;
           if (event.type === 'error' || event.type === 'turn.failed')
             recordError(
               event.message ||
@@ -205,9 +247,11 @@ export async function generate({
         () =>
           stop(
             new Error(
-              timeoutMs === CALL_LIMIT_MS
-                ? 'La limite de 30 minutes pour cet appel a été atteinte. Les livrables enregistrés sont conservés.'
-                : `Le temps alloué à cet appel (${Math.ceil(timeoutMs / 1000)} s) est écoulé. Les livrables enregistrés sont conservés.`,
+              report.connectionStatus === 'retrying'
+                ? 'La connexion au modèle a échoué après plusieurs tentatives. Les résultats enregistrés sont conservés. Vérifiez le diagnostic avant de reprendre.'
+                : timeoutMs === CALL_LIMIT_MS
+                  ? 'La limite de 30 minutes pour cet appel a été atteinte. Les livrables enregistrés sont conservés.'
+                  : `Le temps alloué à cet appel (${Math.ceil(timeoutMs / 1000)} s) est écoulé. Les livrables enregistrés sont conservés.`,
             ),
           ),
         timeoutMs,
@@ -255,6 +299,14 @@ export async function generate({
       child.stderr.on('data', (chunk) => {
         report.stderrBytes += chunk.length;
         stderr = (stderr + chunk.toString()).slice(-16000);
+        // Surface transport failures while the call is running, including CLIs
+        // that report the first reconnect only on stderr. Ignore startup noise.
+        for (const line of stderr.split('\n').slice(0, -1))
+          if (
+            /stream disconnected|idle timeout waiting for/i.test(line) &&
+            !/prompt|request body|response body|reasoning/i.test(line)
+          )
+            recordError(line);
         saveSoon();
       });
       child.on('error', (e) =>
@@ -266,14 +318,16 @@ export async function generate({
         const details = [...report.errors, stderr].join('\n');
         const failure =
           stopped ||
-          (code === 0
+          (code === 0 && !failedTurn
             ? null
             : new Error(
                 /not logged|401|unauthorized|authentication/i.test(details)
                   ? 'La connexion Codex a expiré. Lancez npm run login.'
                   : /limit|429|quota/i.test(details)
                     ? 'La limite du fournisseur a été atteinte. La mission est conservée pour reprise.'
-                    : 'La génération Codex a échoué. Consultez le diagnostic de cet appel.',
+                    : report.connectionStatus === 'retrying'
+                      ? 'La connexion au modèle a échoué après plusieurs tentatives. Les résultats enregistrés sont conservés. Vérifiez le diagnostic avant de reprendre.'
+                      : 'La génération Codex a échoué. Consultez le diagnostic de cet appel.',
               ));
         finish(failure);
       });

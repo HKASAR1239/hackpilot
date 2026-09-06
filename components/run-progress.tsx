@@ -68,6 +68,15 @@ export function RunProgress({ mission }: { mission: Mission }) {
           {t('livrables enregistrés et contrôlés')}
         </p>
       )}
+      {mission.currentCall &&
+        running &&
+        mission.currentCall.connectionStatus === 'retrying' && (
+          <output className="control-notice">
+            {t(
+              'Connexion au modèle interrompue. Tentative de reconnexion en cours ; aucun résultat supplémentaire n’est encore enregistré.',
+            )}
+          </output>
+        )}
       {mission.currentCall && (
         <details className="call-diagnostics">
           <summary>

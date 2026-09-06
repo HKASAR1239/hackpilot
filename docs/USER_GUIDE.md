@@ -111,21 +111,24 @@ Each model call stores a redacted diagnostic under `generation/call-*.json`, inc
 
 ## Configuration
 
-| Variable                      | Default                                              | Purpose                            |
-| ----------------------------- | ---------------------------------------------------- | ---------------------------------- |
-| `PORT`                        | `4317` in production, `4318` for the development API | API / production server port       |
-| `HACKPILOT_PREVIEW_PORT`      | `4319`                                               | Isolated preview server port       |
-| `HACKPILOT_DATA_DIR`          | `.hackpilot` in the project directory                | Local working data                 |
-| `HACKPILOT_CODEX_BIN`         | Project-installed Codex                              | Alternative Codex executable       |
-| `HACKPILOT_MODEL`             | Model configured in Codex                            | Generation model override          |
-| `HACKPILOT_REASONING_EFFORT`  | `xhigh`                                              | Strategy, reference and review     |
-| `HACKPILOT_PRODUCTION_EFFORT` | `high`                                               | Deliverable production and repairs |
+| Variable                      | Default                                              | Purpose                                                                                            |
+| ----------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `PORT`                        | `4317` in production, `4318` for the development API | API / production server port                                                                       |
+| `HACKPILOT_PREVIEW_PORT`      | `4319`                                               | Isolated preview server port                                                                       |
+| `HACKPILOT_DATA_DIR`          | `.hackpilot` in the project directory                | Local working data                                                                                 |
+| `HACKPILOT_CODEX_TRANSPORT`   | `http`                                               | OpenAI HTTP/SSE using the existing login; `configured` preserves your Codex provider and transport |
+| `HACKPILOT_CODEX_BIN`         | Project-installed Codex                              | Alternative Codex executable                                                                       |
+| `HACKPILOT_MODEL`             | Model configured in Codex                            | Generation model override                                                                          |
+| `HACKPILOT_REASONING_EFFORT`  | `xhigh`                                              | Strategy, reference and review                                                                     |
+| `HACKPILOT_PRODUCTION_EFFORT` | `high`                                               | Deliverable production and repairs                                                                 |
 
 Strategy and review use the reasoning effort setting; production and targeted repairs use the production effort setting. Supported configuration values are `low`, `medium`, `high`, `xhigh`, and `max`; the selected Codex model must support the value. For example, `HACKPILOT_MODEL=gpt-6-astra HACKPILOT_REASONING_EFFORT=xhigh npm start` explicitly selects Astra with xhigh reasoning. The activity log records the requested model and effort at the start of each attempt. If no model override is supplied, the log identifies the Codex configuration as the model source. A settings change applies after restarting the server and starting a new attempt; it does not revise already saved plans or deliverables. Create a new project with the same brief and documents for a fresh analysis.
 
 The server does not load `.env` files automatically. Set variables in the launch environment. The development UI and its API proxy use the ports in `vite.config.ts`; changing the development API port also requires updating that proxy.
 
 ## Troubleshooting
+
+**The call repeatedly reconnects or reports an idle WebSocket timeout.** Version 0.0.8 uses an OpenAI HTTP/SSE provider by default, without changing your global configuration or login. Set `HACKPILOT_CODEX_TRANSPORT=configured` only when you need your own provider settings. The progress view reports connection retries separately from model work. Check the remaining deadline before resuming: resume preserves it; use **Control room → Change deadline** if your assignment permits an extension. A transport failure does not reset the consumed call budget.
 
 **Codex is unavailable or its login has expired.** Run `npm ci`, then `npm run login`. The preset demo remains available without login. A provider error is displayed rather than silently replaced by a demo.
 

@@ -27,6 +27,7 @@ console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 3, o
     for (const env of [
       {},
       { HACKPILOT_MODEL: 'gpt-6-astra', HACKPILOT_REASONING_EFFORT: 'high' },
+      { HACKPILOT_CODEX_TRANSPORT: 'configured' },
     ]) {
       const configuration = generationSettings(env);
       let usage;
@@ -58,7 +59,30 @@ console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 3, o
           'inherit the configured Codex model',
         );
       assert.equal(args[args.indexOf('--sandbox') + 1], 'read-only');
+      assert.ok(args.includes('approval_policy="never"'));
+      assert.equal(
+        args.includes('model_provider="hackpilot-http"'),
+        env.HACKPILOT_CODEX_TRANSPORT !== 'configured',
+      );
+      assert.equal(
+        args.includes(
+          'model_providers.hackpilot-http.supports_websockets=false',
+        ),
+        env.HACKPILOT_CODEX_TRANSPORT !== 'configured',
+      );
+      if (env.HACKPILOT_CODEX_TRANSPORT !== 'configured') {
+        assert.ok(
+          args.includes(
+            'model_providers.hackpilot-http.requires_openai_auth=true',
+          ),
+        );
+        assert.ok(args.includes('features.unbounded_connection_retries=false'));
+      }
     }
+    assert.throws(
+      () => generationSettings({ HACKPILOT_CODEX_TRANSPORT: 'typo' }),
+      /HACKPILOT_CODEX_TRANSPORT/,
+    );
     assert.throws(
       () => generationSettings({ HACKPILOT_REASONING_EFFORT: 'xhgih' }),
       /HACKPILOT_REASONING_EFFORT/,

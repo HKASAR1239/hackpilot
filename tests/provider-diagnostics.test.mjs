@@ -15,7 +15,14 @@ import { once } from 'node:events';
 let prompt = ''; for await (const c of process.stdin) prompt += c;
 const emit = async (value) => { const text = JSON.stringify(value) + '\\n'; for (let i = 0; i < text.length; i += 32001) if (!process.stdout.write(text.slice(i, i + 32001))) await once(process.stdout, 'drain'); };
 if (!prompt.includes('first-event-test')) await emit({ type: 'thread.started', thread_id: 'synthetic-session' });
-if (prompt.includes('first-event-test')) {
+if (prompt.includes('connection-test')) {
+  process.stderr.write('WARN stream disconnected - retrying: idle timeout waiting for websocket\\n');
+  setInterval(() => {}, 1000);
+} else if (prompt.includes('failed-turn-test')) {
+  await emit({type:'turn.failed', error:{message:'stream disconnected before completion'}});
+  const args=process.argv.slice(2);
+  await writeFile(args[args.indexOf('--output-last-message')+1], '{"ok":true}');
+} else if (prompt.includes('first-event-test')) {
   process.stderr.write('warning: synthetic startup warning\\n');
   await new Promise((resolve) => setTimeout(resolve, 150));
   await emit({ type: 'thread.started', thread_id: 'synthetic-session' });
@@ -46,6 +53,38 @@ if (prompt.includes('first-event-test')) {
           )
           .map(async (f) => JSON.parse(await readFile(join(dir, f), 'utf8'))),
       );
+    await t.test(
+      'a failed turn is rejected even with exit zero and an output file',
+      async () => {
+        await assert.rejects(
+          generate({ prompt: 'failed-turn-test', schema: {}, dir }),
+          /connexion au modèle/,
+        );
+      },
+    );
+    await t.test(
+      'transport reconnects are surfaced live and explain the eventual timeout',
+      async () => {
+        const snapshots = [];
+        await assert.rejects(
+          generate({
+            prompt: 'connection-test',
+            schema: {},
+            dir,
+            timeoutMs: 1500,
+            onTelemetry: (r) => snapshots.push(r),
+          }),
+          /connexion au modèle/,
+        );
+        assert.ok(
+          snapshots.some(
+            (r) => r.status === 'running' && r.connectionStatus === 'retrying',
+          ),
+        );
+        assert.equal(snapshots.at(-1).status, 'failed');
+        assert.equal(snapshots.at(-1).transport, 'http');
+      },
+    );
     await t.test(
       'cancellation retains the provider error and redacts credentials',
       async () => {
@@ -133,7 +172,7 @@ if (prompt.includes('first-event-test')) {
           generate({ prompt: 'timeout-test', schema: {}, dir, timeoutMs: 300 }),
           /temps alloué.*1 s/,
         );
-        const report = (await diagnostics()).find((r) => r.status === 'failed');
+        const report = (await diagnostics()).find((r) => r.timeoutMs === 300);
         assert.match(report.stopReason, /1 s/);
         assert.equal(report.timeoutMs, 300);
         assert.throws(() => process.kill(report.pid, 0), { code: 'ESRCH' });

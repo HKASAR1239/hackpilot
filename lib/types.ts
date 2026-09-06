@@ -164,6 +164,8 @@ export type Mission = MissionSummary & {
   };
   activity?: { title: string; at: string };
   currentCall?: {
+    transport?: string;
+    connectionStatus?: string;
     timeoutMs?: number;
     purpose: string;
     reasoningEffort: string;
