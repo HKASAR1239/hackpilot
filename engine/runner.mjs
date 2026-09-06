@@ -15,6 +15,7 @@ import {
 import { mkdir, writeFile, rm, rename, copyFile, cp } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   verificationPlanSchema,
   validateCalculationChecks,
@@ -1100,6 +1101,30 @@ export class Runner {
         ...web,
         results: web.results.map((r) => ({ ...r, deliverableIds })),
       });
+      if (m.verificationRecovery?.localFileTests?.length) {
+        const local = await this.verify({
+          url: pathToFileURL(
+            join(this.store.dir(m.id), 'project', 'index.html'),
+          ).href,
+          tests: m.verificationRecovery.localFileTests,
+          dir: this.store.dir(m.id),
+          signal,
+        });
+        checks.push({
+          ...local,
+          results: local.results.map((r) => ({
+            ...r,
+            name: '[file:] ' + r.name,
+            deliverableIds,
+            evidence: {
+              ...r.evidence,
+              protocol: 'file:',
+              browser: 'Chromium',
+              entry: 'index.html',
+            },
+          })),
+        });
+      }
     }
     m.tests = {
       at: new Date().toISOString(),

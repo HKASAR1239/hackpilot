@@ -433,6 +433,8 @@ export async function createApp({
               {
                 scenarios: m.originalTests,
                 supplementaryScenarios: m.verificationRecovery?.webTests || [],
+                localFileScenarios:
+                  m.verificationRecovery?.localFileTests || [],
                 results: m.tests,
               },
               null,

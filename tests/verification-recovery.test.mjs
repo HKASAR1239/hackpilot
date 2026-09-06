@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createServer } from 'node:http';
 import { casePlan, caseBundle, caseBrief } from './case-fixture.mjs';
 import { materializeArtifacts, verifyArtifacts } from '../engine/artifacts.mjs';
@@ -383,4 +384,71 @@ test('a stale supplemental message can be corrected after a repair without chang
     m.verificationRecovery.history.at(-1).webReplacements[0].before,
     stale,
   );
+});
+
+test('exported HTML runs directly from disk, persists after reload and cannot reach an external HTTP service', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'hp-offline-proof-'));
+  let requests = 0;
+  const server = createServer((_req, res) => {
+    requests++;
+    res.end('unexpected network');
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const project = join(dir, 'exported project');
+    await mkdir(project);
+    const path = join(project, 'index.html');
+    await writeFile(
+      path,
+      `<!doctype html><title>Offline exported workflow</title>
+      <p>This standalone exported workflow saves a fictitious value locally and demonstrates direct file opening without a server.</p>
+      <input id="value"><button id="save">Save</button><output id="status">Ready</output><output id="network">Pending</output>
+      <script>document.querySelector('#value').value=localStorage.getItem('value')||'';
+      document.querySelector('#save').onclick=()=>{localStorage.setItem('value',document.querySelector('#value').value);document.querySelector('#status').textContent='Saved'};
+      fetch('http://127.0.0.1:${server.address().port}/blocked').then(()=>document.querySelector('#network').textContent='Unexpected request').catch(()=>document.querySelector('#network').textContent='Network blocked');</script>`,
+    );
+    const before = await readFile(path);
+    const t = {
+      name: 'Direct-file save and reload',
+      steps: [
+        {
+          action: 'assertText',
+          selector: '#network',
+          value: 'Network blocked',
+        },
+        { action: 'fill', selector: '#value', value: 'fictitious saved value' },
+        { action: 'click', selector: '#save', value: '' },
+        { action: 'assertText', selector: '#status', value: 'Saved' },
+        { action: 'reload', selector: '', value: '' },
+        {
+          action: 'assertValue',
+          selector: '#value',
+          value: 'fictitious saved value',
+        },
+      ],
+    };
+    const m = {
+      plan: { deliverables: [{ id: 'web', kind: 'web' }] },
+      bundle: { tests: [], artifacts: [] },
+      design: { acceptanceCriteria: [], calculationChecks: [] },
+    };
+    assert.equal(
+      applyVerificationRecovery({ ...empty, localFileTests: [t] }, m),
+      true,
+    );
+    const result = await verify({
+      url: pathToFileURL(path).href,
+      dir,
+      tests: m.verificationRecovery.localFileTests,
+    });
+    assert.equal(result.passed, true, JSON.stringify(result.results));
+    assert.equal(requests, 0);
+    assert.deepEqual(await readFile(path), before);
+    assert.deepEqual(m.verificationRecovery.history[0].addedLocalFileTests, [
+      t,
+    ]);
+  } finally {
+    await new Promise((r) => server.close(r));
+    await rm(dir, { recursive: true, force: true });
+  }
 });

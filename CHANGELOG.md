@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.0.11
+
+- Add executable direct-file browser scenarios when verification requires opening exported HTML without a server. External requests and files outside the exported folder are blocked.
+- Preserve these scenarios, execution evidence and browser limitations in saved projects and exports.
+
+
 ## v0.0.10
 
 - Correct stale supplemental message assertions after a content repair without changing original tests or reversing the content fix.

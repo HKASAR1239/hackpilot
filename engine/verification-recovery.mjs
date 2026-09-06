@@ -30,6 +30,7 @@ export const verificationRecoverySchema = obj({
     },
   },
   calculationChecks: calculationChecksSchema,
+  localFileTests: { ...buildSchema.properties.tests, maxItems: 8 },
   replacements: arr(obj({ id: text, reason: text }), 12),
   webReplacements: arr(
     obj({
@@ -164,6 +165,7 @@ Vise uniquement les critères unverified. webTests ajoute au maximum huit parcou
 calculationChecks : ajoute les variations réellement demandées, avec les libellés EXACTS du tableur exporté et des résultats attendus calculés indépendamment. Après correction d'un scénario, un contrôle antérieur devenu contradictoire avec les documents peut être remplacé : conserve son id, indique dans replacements {id,reason} la contradiction précise et la couverture conservée. Conserve TOUS les libellés des résultats attendus antérieurs, sur le même livrable et la même feuille, avec les nouvelles valeurs justifiées. Au maximum dix entrées et vingt assertions par contrôle. Tu peux répartir les assertions entre plusieurs contrôles, avec exactement les mêmes entrées corrigées. Les autres anciens contrôles restent inchangés. N'affaiblis jamais un contrôle pour masquer un bug. Vérifie les hypothèses conjointes et les unités, pas seulement l'arithmétique. Les calculs sont contrôlés sur les feuilles exportées, sans modifier les fichiers.
 Pour les PDF/CSV et le temps, examine les preuves déjà fournies ; ne propose pas de test web artificiel. unavailable mentionne avec criterionId et reason toute preuve hors capacités : le moteur garde le critère non vérifié. N'invente aucune observation terrain. summary décrit brièvement ce qui est ajouté ou remplacé.
 Critères non vérifiés : ${JSON.stringify(m.review?.unverified || [])}
+localFileTests ajoute des parcours DSL pour vérifier l'ouverture DIRECTE du fichier index.html exporté dans Chromium (protocole file:), sans serveur HTTP. Le moteur bloque le réseau et les fichiers hors du dossier exporté. Utilise les mêmes actions et sélecteurs que webTests, avec une assertion ; teste le parcours et le rechargement si ce mode est annoncé dans les livrables. Ce contrôle ne certifie pas les autres navigateurs. Les fichiers restent inchangés. Parcours file: déjà enregistrés : ${JSON.stringify(m.verificationRecovery?.localFileTests || [])}
 Tests complémentaires échoués après correction du contenu : ${JSON.stringify(failedSupplementalChecks(m))}. webReplacements peut corriger UNIQUEMENT le texte attendu d'une assertion assertText de ces tests, avec name, reason et assertions [{step: index à partir de zéro, value: nouveau texte exact}]. Justifie pourquoi l'ancien texte contredisait le critère. Toutes les actions, sélecteurs, autres assertions et tests d'origine restent inchangés. Ne raccourcis pas un texte attendu pour cacher un défaut. Si le test décrit toujours le bon comportement, ne le remplace pas : le code doit être corrigé. La relecture indépendante revalidera les critères après exécution.
 Couverture perdue à rétablir : ${JSON.stringify(calculationCoverageGaps(m))}
 Proposition précédente refusée par le validateur (aucun changement appliqué) : ${JSON.stringify(rejected)}
@@ -185,7 +187,14 @@ export function applyVerificationRecovery(raw, m, now = Date.now()) {
   )
     throw new Error('Invalid verification recovery plan.');
   validateBrowserTests(raw.webTests);
-  if (raw.webTests.length && !m.plan.deliverables.some((d) => d.kind === 'web'))
+  const localFileTests = raw.localFileTests || [];
+  if (!Array.isArray(localFileTests) || localFileTests.length > 8)
+    throw new Error('Invalid local-file verification tests.');
+  validateBrowserTests(localFileTests);
+  if (
+    (raw.webTests.length || localFileTests.length) &&
+    !m.plan.deliverables.some((d) => d.kind === 'web')
+  )
     throw new Error('Browser checks require a web deliverable.');
   const previous = activeCalculationChecks(m),
     replacements = new Map();
@@ -304,9 +313,19 @@ export function applyVerificationRecovery(raw, m, now = Date.now()) {
     ...(m.originalTests || m.bundle.tests || []),
     ...tests,
   ]);
+  const localTests = [
+    ...new Map(
+      [...(state.localFileTests || []), ...localFileTests].map((t) => [
+        fingerprint(t),
+        t,
+      ]),
+    ).values(),
+  ];
+  validateBrowserTests(localTests);
   const changed =
     fingerprint([...next.values()]) !== fingerprint(previous) ||
-    fingerprint(tests) !== fingerprint(state.webTests);
+    fingerprint(tests) !== fingerprint(state.webTests) ||
+    fingerprint(localTests) !== fingerprint(state.localFileTests || []);
   state.history.push({
     at: new Date(now).toISOString(),
     summary: raw.summary,
@@ -316,10 +335,12 @@ export function applyVerificationRecovery(raw, m, now = Date.now()) {
       after: next.get(r.id),
     })),
     addedTests: raw.webTests,
+    addedLocalFileTests: localFileTests,
     webReplacements: webAudit,
     unavailable: raw.unavailable,
   });
   state.webTests = tests;
+  state.localFileTests = localTests;
   state.calculationChecks = [...next.values()];
   m.verificationRecovery = state;
   return changed;

@@ -1,6 +1,7 @@
 import { validateBrowserTests } from './schema.mjs';
 import { chromium } from 'playwright';
-import { join } from 'node:path';
+import { join, relative, isAbsolute } from 'node:path';
+import { fileURLToPath } from 'node:url';
 export async function verify({ url, tests, dir, signal }) {
   validateBrowserTests(tests);
   const browser = await chromium.launch({ headless: true });
@@ -11,6 +12,10 @@ export async function verify({ url, tests, dir, signal }) {
   try {
     if (signal?.aborted) throw new Error('Vérification interrompue.');
     const origin = new URL(url).origin;
+    const localRoot =
+      new URL(url).protocol === 'file:'
+        ? fileURLToPath(new URL('.', url))
+        : null;
     async function context() {
       const ctx = await browser.newContext({
         viewport: { width: 1280, height: 820 },
@@ -19,6 +24,14 @@ export async function verify({ url, tests, dir, signal }) {
       await ctx.route('**/*', (route) => {
         const u = route.request().url();
         try {
+          if (localRoot) {
+            const target = new URL(u);
+            if (target.protocol !== 'file:') return route.abort();
+            const path = relative(localRoot, fileURLToPath(target));
+            return path && !path.startsWith('..') && !isAbsolute(path)
+              ? route.continue()
+              : route.abort();
+          }
           return new URL(u).origin === origin
             ? route.continue()
             : route.abort();
@@ -58,7 +71,7 @@ export async function verify({ url, tests, dir, signal }) {
     const title = await page.title();
     const controls = await page.locator('button,input,select,textarea').count();
     const loaded = !!(
-      response?.ok() &&
+      (response?.ok() || (localRoot && !response)) &&
       title &&
       text.length > 60 &&
       controls > 0
@@ -67,7 +80,9 @@ export async function verify({ url, tests, dir, signal }) {
       name: 'Le prototype s’ouvre et propose des interactions',
       passed: loaded,
       detail: loaded
-        ? 'Page HTTP accessible, titre, contenu et contrôles détectés.'
+        ? localRoot
+          ? 'Exported index.html opened directly in Chromium using file:, with external and out-of-folder requests blocked.'
+          : 'Page HTTP accessible, titre, contenu et contrôles détectés.'
         : 'Page incomplète ou non interactive.',
     });
     await page.screenshot({
