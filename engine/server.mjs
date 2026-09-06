@@ -17,6 +17,9 @@ import { Runner } from './runner.mjs';
 import { capabilities, generationSettings } from './provider.mjs';
 import { Documents, MAX_FILE_BYTES, documentError } from './documents.mjs';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const { version } = JSON.parse(
+  await readFile(join(root, 'package.json'), 'utf8'),
+);
 export const mime = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -196,7 +199,7 @@ export async function createApp({
       if (path === '/api/health') {
         reply(res, 200, {
           ok: true,
-          version: '0.0.7',
+          version,
           providers: await capabilities(),
           generation: generationSettings(),
           active: runner.running.size,
