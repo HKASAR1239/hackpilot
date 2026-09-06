@@ -7,6 +7,7 @@ import { caseBundle, casePlan, caseBrief } from './case-fixture.mjs';
 import {
   exerciseCalculation,
   validateCalculationChecks,
+  calculationChecksSchema,
 } from '../engine/calculation-checks.mjs';
 import { materializeArtifacts, verifyArtifacts } from '../engine/artifacts.mjs';
 const check = {
@@ -44,6 +45,38 @@ test('changed-input checks reject false expectations and cannot overwrite formul
         casePlan(),
       ),
     /disagrees/,
+  );
+});
+test('large scenarios can retain up to twenty output assertions while inputs remain bounded', () => {
+  const rows = Array.from({ length: 21 }, (_, i) => ({
+    label: 'Output ' + i,
+    value: i,
+    formula: '',
+  }));
+  const scenario = {
+    ...check,
+    inputs: [{ label: 'Output 0', value: 0 }],
+    expected: rows.slice(0, 20).map(({ label, value }) => ({ label, value })),
+  };
+  const design = { calculations: [{ name: scenario.sheet, rows }] };
+  assert.equal(calculationChecksSchema.items.properties.expected.maxItems, 20);
+  assert.equal(calculationChecksSchema.items.properties.inputs.maxItems, 10);
+  assert.deepEqual(validateCalculationChecks([scenario], design, casePlan()), [
+    scenario,
+  ]);
+  assert.throws(
+    () =>
+      validateCalculationChecks(
+        [
+          {
+            ...scenario,
+            expected: rows.map(({ label, value }) => ({ label, value })),
+          },
+        ],
+        design,
+        casePlan(),
+      ),
+    /Invalid calculation check values/,
   );
 });
 test('real Excel read-back includes cells and detects a changed-input defect that baseline values miss', async () => {

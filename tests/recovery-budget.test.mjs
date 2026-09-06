@@ -12,7 +12,12 @@ import { Store } from '../engine/store.mjs';
 import { Runner } from '../engine/runner.mjs';
 import { casePlan, caseBundle, caseBrief } from './case-fixture.mjs';
 import { qualityResponder } from './quality-fixture.mjs';
-import { adaptiveResponder, adaptiveBrief } from './adaptive-fixture.mjs';
+import {
+  adaptiveResponder,
+  adaptiveBrief,
+  adaptivePlan,
+} from './adaptive-fixture.mjs';
+import { fixtureBundle } from '../engine/fixture.mjs';
 const settle = async (runner) => {
   const until = Date.now() + 30000;
   while (runner.running.size) {
@@ -165,7 +170,7 @@ test('a jury transport failure reuses the accepted content review after restart'
   }
 });
 
-test('missing calculation evidence is added and executed without regenerating the checked documents', async () => {
+test('an invalid evidence proposal is rejected and corrected automatically without regenerating checked documents', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'hp-evidence-resume-'));
   try {
     const store = new Store(dir);
@@ -178,6 +183,7 @@ test('missing calculation evidence is added and executed without regenerating th
       locale: 'en',
     });
     const calls = [];
+    let proposals = 0;
     let saved;
     const base = qualityResponder(casePlan(), caseBundle(), {
       onReview: async (_r, review) => {
@@ -203,7 +209,9 @@ test('missing calculation evidence is added and executed without regenerating th
     const runner = new Runner(store, 'http://127.0.0.1:9999', {
       generate: async (r) => {
         calls.push(r.purpose);
-        if (r.purpose === 'verification-recovery')
+        if (r.purpose === 'verification-recovery') {
+          proposals++;
+          if (proposals === 2) assert.match(r.prompt, /disagrees.*999/);
           return {
             summary: 'Exercise the missing price scenario.',
             webTests: [],
@@ -214,12 +222,18 @@ test('missing calculation evidence is added and executed without regenerating th
                 sheet: 'Rentabilite',
                 description: 'A new price scenario',
                 inputs: [{ label: 'Prix', value: 145 }],
-                expected: [{ label: 'Seuil de rentabilité', value: 180 }],
+                expected: [
+                  {
+                    label: 'Seuil de rentabilité',
+                    value: proposals === 1 ? 999 : 180,
+                  },
+                ],
               },
             ],
             replacements: [],
             unavailable: [],
           };
+        }
         return base(r);
       },
     });
@@ -227,9 +241,12 @@ test('missing calculation evidence is added and executed without regenerating th
     await settle(runner);
     assert.equal(m.status, 'completed', m.error);
     assert.equal(m.repairs, 0);
-    assert.equal(m.verificationRecovery.rounds, 1);
-    assert.deepEqual(calls.slice(-3), [
+    assert.equal(m.verificationRecovery.rounds, 2);
+    assert.equal(m.verificationRecovery.rejectedPlans.length, 1);
+    assert.equal(m.verificationRecovery.history.length, 1);
+    assert.deepEqual(calls.slice(-4), [
       'review',
+      'verification-recovery',
       'verification-recovery',
       'review',
     ]);
@@ -240,6 +257,167 @@ test('missing calculation evidence is added and executed without regenerating th
         bytes,
         p,
       );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('repeated invalid proof proposals exhaust only their bounded allowance and cannot complete or change files', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'hp-rejected-proof-'));
+  try {
+    const store = new Store(dir);
+    await store.init();
+    const m = await store.create({
+      brief: caseBrief,
+      url: '',
+      hours: 1,
+      provider: 'codex',
+      locale: 'en',
+    });
+    let saved;
+    const base = qualityResponder(casePlan(), caseBundle(), {
+      onReview: async (_request, review) => {
+        saved = await Promise.all(
+          m.files.map(async (p) => [
+            p,
+            await readFile(join(store.dir(m.id), 'project', p)),
+          ]),
+        );
+        review.checks[2].status = 'unverified';
+        review.checks[2].evidence = 'Missing price sensitivity evidence.';
+        return review;
+      },
+    });
+    const runner = new Runner(store, 'http://127.0.0.1:9999', {
+      generate: (r) =>
+        r.purpose !== 'verification-recovery'
+          ? base(r)
+          : Promise.resolve({
+              summary: 'Invalid independent calculation.',
+              webTests: [],
+              replacements: [],
+              unavailable: [],
+              calculationChecks: [
+                {
+                  id: 'price',
+                  deliverableId: 'calculs',
+                  sheet: 'Rentabilite',
+                  description: 'A price change',
+                  inputs: [{ label: 'Prix', value: 145 }],
+                  expected: [{ label: 'Seuil de rentabilité', value: 999 }],
+                },
+              ],
+            }),
+    });
+    await runner.start(m.id);
+    await settle(runner);
+    assert.equal(m.status, 'failed');
+    assert.match(m.error, /Incomplete verification.*disagrees/);
+    assert.equal(m.verificationRecovery.rounds, 2);
+    assert.equal(m.verificationRecovery.rejectedPlans.length, 2);
+    assert.equal(m.verificationRecovery.history.length, 0);
+    assert.equal(m.repairs, 0);
+    for (const [p, bytes] of saved)
+      assert.deepEqual(
+        await readFile(join(store.dir(m.id), 'project', p)),
+        bytes,
+      );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a content repair followed by a stale supplemental assertion completes without undoing the repair', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'hp-stale-message-'));
+  try {
+    const store = new Store(dir);
+    await store.init();
+    const m = await store.create({
+      brief: adaptiveBrief,
+      url: '',
+      hours: 1,
+      provider: 'codex',
+      locale: 'en',
+    });
+    const before = 'Only in memory',
+      after = 'Save unconfirmed; data may already be stored';
+    const supplemental = {
+      name: 'Supplemental storage status',
+      steps: [
+        { action: 'click', selector: '#save', value: '' },
+        { action: 'assertText', selector: '#status', value: before },
+      ],
+    };
+    const calls = [];
+    let repaired = false;
+    const base = qualityResponder(adaptivePlan(), fixtureBundle(), {
+      onBuild: async (r, part) => {
+        if (r.purpose.startsWith('repair:')) {
+          await new Promise((resolve) => setTimeout(resolve, 2));
+          repaired = true;
+          part.files[0].content += '<!-- Corrected storage message -->';
+        }
+        return part;
+      },
+      onReview: (_r, review) => {
+        if (!m.verificationRecovery?.history.length) {
+          review.checks[0].status = 'unverified';
+          review.checks[0].evidence = 'Missing storage fault scenario.';
+        } else if (!repaired) {
+          review.checks[0].status = 'failed';
+          review.checks[0].evidence =
+            'The storage message claims certainty after a read-back error.';
+        }
+        return review;
+      },
+    });
+    const runner = new Runner(store, 'http://127.0.0.1:9999', {
+      generate: (r) => {
+        calls.push(r.purpose);
+        if (r.purpose !== 'verification-recovery') return base(r);
+        return Promise.resolve({
+          summary: 'Synthetic storage evidence recovery.',
+          calculationChecks: [],
+          replacements: [],
+          unavailable: [],
+          webTests: repaired ? [] : [supplemental],
+          webReplacements: repaired
+            ? [
+                {
+                  name: supplemental.name,
+                  reason:
+                    'The old assertion requires the message rejected by independent review.',
+                  assertions: [{ step: 1, value: after }],
+                },
+              ]
+            : [],
+        });
+      },
+      verify: async ({ tests }) => {
+        const results = tests.map((t) => ({
+          name: t.name,
+          passed:
+            t.name !== supplemental.name ||
+            t.steps[1].value === (repaired ? after : before),
+          detail:
+            'Synthetic message oracle; browser action execution is covered separately.',
+        }));
+        return {
+          passed: results.every((r) => r.passed),
+          results,
+          screenshot: false,
+        };
+      },
+    });
+    await runner.start(m.id);
+    await settle(runner);
+    assert.equal(m.status, 'completed', m.error);
+    assert.equal(m.repairs, 1);
+    assert.equal(calls.filter((p) => p.startsWith('repair:')).length, 1);
+    assert.equal(m.verificationRecovery.rounds, 2);
+    assert.deepEqual(m.originalTests, fixtureBundle().tests);
+    assert.equal(m.verificationRecovery.webTests[0].steps[1].value, after);
+    assert.ok(m.bundle.files[0].content.includes('Corrected storage message'));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

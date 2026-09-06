@@ -10,6 +10,7 @@ import {
   applyVerificationRecovery,
   activeCalculationChecks,
   activeWebTests,
+  calculationCoverageGaps,
 } from '../engine/verification-recovery.mjs';
 import { verify } from '../engine/verifier.mjs';
 import { parseCSV } from '../engine/csv-evidence.mjs';
@@ -93,6 +94,75 @@ test('replacement checks need an audit reason, preserve other checks, and cannot
     m.verificationRecovery.history[0].replacements[0].before,
     change,
   );
+});
+test('a corrected calculation preserves every assertion, including when split across checks; saved weak replacements remain detectable', () => {
+  const before = {
+    ...change,
+    expected: [...change.expected, { label: 'Résultat haut', value: 12000 }],
+  };
+  const m = {
+    plan: casePlan(),
+    bundle: caseBundle(),
+    originalTests: [],
+    design: { calculationChecks: [before], acceptanceCriteria: [] },
+  };
+  const next = {
+    ...change,
+    inputs: [{ label: 'Prix', value: 195 }],
+    expected: [{ label: 'Seuil de rentabilité', value: 120 }],
+  };
+  const raw = {
+    ...empty,
+    calculationChecks: [next],
+    replacements: [{ id: next.id, reason: 'A documented corrected price.' }],
+  };
+  const saved = structuredClone(m);
+  assert.throws(
+    () => applyVerificationRecovery(raw, m),
+    /coverage.*Résultat haut/,
+  );
+  assert.deepEqual(m, saved, 'rejection must not mutate saved checks');
+  const supplement = {
+    ...next,
+    id: 'profit',
+    expected: [{ label: 'Résultat haut', value: 27000 }],
+  };
+  assert.throws(
+    () =>
+      applyVerificationRecovery(
+        {
+          ...raw,
+          calculationChecks: [
+            next,
+            {
+              ...supplement,
+              inputs: [{ label: 'Prix', value: 145 }],
+              expected: [{ label: 'Résultat haut', value: 12000 }],
+            },
+          ],
+        },
+        m,
+      ),
+    /coverage/,
+  );
+  assert.equal(
+    applyVerificationRecovery(
+      { ...raw, calculationChecks: [next, supplement] },
+      m,
+    ),
+    true,
+  );
+  assert.deepEqual(calculationCoverageGaps(m), []);
+  // Simulate a saved plan from an older engine that accepted a weaker check.
+  m.verificationRecovery.calculationChecks = [next];
+  assert.ok(
+    calculationCoverageGaps(m).some((g) => g.label === 'Résultat haut'),
+  );
+  assert.equal(
+    applyVerificationRecovery({ ...empty, calculationChecks: [supplement] }, m),
+    true,
+  );
+  assert.deepEqual(calculationCoverageGaps(m), []);
 });
 test('CSV read-back checks multiline text and catches corruption despite an intact workbook', async () => {
   assert.deepEqual(parseCSV('\uFEFF"a","b"\r\n"line\n2","say ""yes"""'), [
@@ -212,4 +282,105 @@ test('supplementary browser checks retain original assertions, detect a broken f
     await new Promise((r) => server.close(r));
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('a stale supplemental message can be corrected after a repair without changing its actions or the original tests', () => {
+  const original = {
+    name: 'Original workflow',
+    steps: [{ action: 'assertText', selector: '#status', value: 'Ready' }],
+  };
+  const stale = {
+    name: 'Storage read-back',
+    steps: [
+      { action: 'storageMode', selector: '', value: 'read-failure' },
+      { action: 'click', selector: '#save', value: '' },
+      { action: 'assertText', selector: '#status', value: 'Only in memory' },
+      { action: 'reload', selector: '', value: '' },
+      { action: 'assertValue', selector: '#value', value: 'saved' },
+    ],
+  };
+  const m = {
+    plan: { deliverables: [{ id: 'web', kind: 'web' }] },
+    bundle: { tests: [original], artifacts: [] },
+    originalTests: [original],
+    design: { acceptanceCriteria: [], calculationChecks: [] },
+    tests: { results: [{ name: stale.name, passed: false }] },
+    production: {
+      checkpoints: { web: { createdAt: '2026-01-02T00:00:00.000Z' } },
+    },
+  };
+  applyVerificationRecovery(
+    { ...empty, webTests: [stale] },
+    m,
+    Date.parse('2026-01-01T00:00:00Z'),
+  );
+  const patch = {
+    ...empty,
+    webReplacements: [
+      {
+        name: stale.name,
+        reason:
+          'The repaired message must report uncertainty after a read failure, since the write succeeded.',
+        assertions: [
+          { step: 2, value: 'Save unconfirmed; data may already be stored' },
+        ],
+      },
+    ],
+  };
+  const saved = structuredClone(m);
+  assert.throws(
+    () =>
+      applyVerificationRecovery(
+        {
+          ...patch,
+          webReplacements: [
+            {
+              ...patch.webReplacements[0],
+              assertions: [{ step: 2, value: 'memory' }],
+            },
+          ],
+        },
+        m,
+      ),
+    /cannot shorten/,
+  );
+  assert.throws(
+    () =>
+      applyVerificationRecovery(
+        {
+          ...patch,
+          webReplacements: [
+            {
+              ...patch.webReplacements[0],
+              assertions: [{ step: 4, value: 'anything' }],
+            },
+          ],
+        },
+        m,
+      ),
+    /retain the assertion action/,
+  );
+  assert.throws(
+    () =>
+      applyVerificationRecovery(
+        {
+          ...patch,
+          webReplacements: [
+            { ...patch.webReplacements[0], name: original.name },
+          ],
+        },
+        m,
+      ),
+    /Only a failed supplemental/,
+  );
+  assert.deepEqual(m, saved);
+  assert.equal(applyVerificationRecovery(patch, m), true);
+  const steps = structuredClone(stale.steps);
+  steps[2].value = patch.webReplacements[0].assertions[0].value;
+  assert.deepEqual(activeWebTests(m), [original, { ...stale, steps }]);
+  assert.deepEqual(m.originalTests, [original]);
+  assert.deepEqual(
+    m.verificationRecovery.history.at(-1).webReplacements[0].before,
+    stale,
+  );
 });

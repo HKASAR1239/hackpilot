@@ -23,7 +23,7 @@ export const calculationChecksSchema = {
     sheet: str,
     description: str,
     inputs: values,
-    expected: values,
+    expected: { ...values, maxItems: 20 },
   }),
 };
 export const verificationPlanSchema = object({
@@ -84,7 +84,7 @@ export function validateCalculationChecks(checks, design, plan) {
       if (
         !Array.isArray(check[key]) ||
         !check[key].length ||
-        check[key].length > 10 ||
+        check[key].length > (key === 'expected' ? 20 : 10) ||
         new Set(check[key].map((v) => v.label)).size !== check[key].length ||
         check[key].some(
           (v) =>

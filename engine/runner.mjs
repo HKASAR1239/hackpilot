@@ -5,6 +5,8 @@ import {
   verificationRecoverySchema,
   verificationRecoveryPrompt,
   applyVerificationRecovery,
+  calculationCoverageGaps,
+  failedSupplementalChecks,
 } from './verification-recovery.mjs';
 import {
   assertGenerationBudget,
@@ -1017,26 +1019,62 @@ export class Runner {
   }
   async recoverVerification(m, language, signal) {
     m.verificationRecovery ||= { rounds: 0, history: [], webTests: [] };
-    if (m.verificationRecovery.rounds >= generationBudget(m).verificationRounds)
-      return false;
-    assertGenerationBudget(m);
-    await this.activity(
-      m,
-      'Complément des preuves de vérification sur les fichiers enregistrés.',
-      'Adding verification evidence for the saved files.',
-    );
-    const raw = await this.call(
-      m,
-      verificationRecoveryPrompt(m, language),
-      verificationRecoverySchema,
-      signal,
-      'verification-recovery',
-    );
-    m.verificationRecovery.rounds++;
-    await this.store.save(m);
-    const changed = applyVerificationRecovery(raw, m, this.now());
-    await this.store.save(m);
-    return changed;
+    const lastRejected = m.verificationRecovery.rejectedPlans?.at(-1);
+    const lastAccepted = m.verificationRecovery.history.at(-1);
+    let rejected =
+      lastRejected && (!lastAccepted || lastRejected.at > lastAccepted.at)
+        ? lastRejected
+        : null;
+    while (
+      m.verificationRecovery.rounds < generationBudget(m).verificationRounds
+    ) {
+      assertGenerationBudget(m);
+      await this.activity(
+        m,
+        'Complément des preuves de vérification sur les fichiers enregistrés.',
+        'Adding verification evidence for the saved files.',
+      );
+      const raw = await this.call(
+        m,
+        verificationRecoveryPrompt(m, language, rejected),
+        verificationRecoverySchema,
+        signal,
+        'verification-recovery',
+      );
+      m.verificationRecovery.rounds++;
+      let changed;
+      try {
+        changed = applyVerificationRecovery(raw, m, this.now());
+      } catch (error) {
+        rejected = {
+          at: new Date(this.now()).toISOString(),
+          reason: error.message,
+          proposal: raw,
+        };
+        (m.verificationRecovery.rejectedPlans ||= []).push(rejected);
+        await this.store.save(m);
+        await this.store.event(
+          m,
+          label(
+            m,
+            'Proposition de vérification refusée : ',
+            'Verification proposal rejected: ',
+          ) + error.message,
+        );
+        continue;
+      }
+      await this.store.save(m);
+      return changed;
+    }
+    if (rejected)
+      throw new Error(
+        label(
+          m,
+          'Vérification incomplète après validation des propositions : ',
+          'Incomplete verification after proposal validation: ',
+        ) + rejected.reason,
+      );
+    return false;
   }
   async verifyComplete(m, signal) {
     const checks = [
@@ -1206,6 +1244,14 @@ export class Runner {
       await this.stage(m, 3, 'running');
       for (;;) {
         if (signal.aborted) throw signal.reason;
+        const coverageGaps = calculationCoverageGaps(m);
+        if (!demo && coverageGaps.length) {
+          if (await this.recoverVerification(m, language, signal)) continue;
+          throw new Error(
+            'Incomplete calculation assertion coverage: ' +
+              JSON.stringify(coverageGaps),
+          );
+        }
         const tests = await this.verifyComplete(m, signal);
         if (tests.passed && !demo) await this.saveVerifiedVersion(m, true);
         if (demo) {
@@ -1222,6 +1268,11 @@ export class Runner {
           break;
         }
         if (!tests.passed) {
+          if (
+            failedSupplementalChecks(m).length &&
+            (await this.recoverVerification(m, language, signal))
+          )
+            continue;
           // Part checks passed earlier; the failing final check still blocks publication.
           m.review = {
             summary: '',

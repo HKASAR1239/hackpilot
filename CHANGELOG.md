@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.0.10
+
+- Correct stale supplemental message assertions after a content repair without changing original tests or reversing the content fix.
+
+- Prevent calculation-check replacements from silently dropping previous assertions. Split checks must cover the same corrected inputs and worksheet.
+- Support up to twenty output assertions per calculation scenario.
+- Retry invalid verification proposals within the existing verification budget, preserve rejection diagnostics, and keep original files unchanged.
+- Detect missing assertion coverage in saved recovery histories before final review.
+
+
 ## 0.0.6 — 2026-09-05
 
 - Add a shared reference with alternatives, source quotations, explicit assumptions, evaluated calculations, and acceptance criteria.
