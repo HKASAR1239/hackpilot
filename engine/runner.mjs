@@ -1,4 +1,15 @@
-import { MAX_CALLS, MAX_INPUT, MAX_OUTPUT } from '../lib/execution-limits.mjs';
+import {
+  activeCalculationChecks,
+  activeWebTests,
+  reviewKey,
+  verificationRecoverySchema,
+  verificationRecoveryPrompt,
+  applyVerificationRecovery,
+} from './verification-recovery.mjs';
+import {
+  assertGenerationBudget,
+  generationBudget,
+} from '../lib/generation-budget.mjs';
 import { mkdir, writeFile, rm, rename, copyFile, cp } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -107,6 +118,7 @@ export class Runner {
     this.running.set(id, controller);
     m.status = 'running';
     m.error = null;
+    m.blocker = null;
     m.startedAt = new Date().toISOString();
     try {
       await this.store.save(m);
@@ -142,14 +154,7 @@ export class Runner {
   ) {
     if (signal.aborted)
       throw signal.reason || new Error('Mission interrompue.');
-    if (
-      m.usage.calls >= (m.schedule?.callBudget || MAX_CALLS) ||
-      m.usage.input >= MAX_INPUT ||
-      m.usage.output >= MAX_OUTPUT
-    )
-      throw new Error(
-        'Le budget de génération est atteint. Les résultats sont conservés.',
-      );
+    assertGenerationBudget(m);
     const timeoutMs = callTimeBudget(m, purpose, this.now());
     if (m.rubric) assertRubric(m.rubric);
     m.usage.calls++;
@@ -416,8 +421,20 @@ export class Runner {
         );
     if (!bundle.files.length && !bundle.artifacts.length) return;
     const hash = fingerprint(bundle);
+    const checks = complete
+      ? m.tests
+      : Object.values(m.production.checkpoints)
+          .filter((p) => p.status === 'checked')
+          .map((p) => p.checks);
+    const evidenceHash = fingerprint({
+      checks: complete ? checks?.results : checks,
+      review: complete ? m.review : null,
+      recovery: m.verificationRecovery,
+      jury: m.jury?.bundleHash === hash ? m.jury : null,
+    });
     if (
       m.lastVerified?.bundleHash === hash &&
+      m.lastVerified.evidenceHash === evidenceHash &&
       (!complete || m.lastVerified.complete) &&
       (m.jury?.bundleHash !== hash || m.lastVerified.jury?.at === m.jury.at)
     )
@@ -444,11 +461,10 @@ export class Runner {
       files,
       complete,
       bundleHash: hash,
-      checks: complete
-        ? m.tests
-        : Object.values(m.production.checkpoints)
-            .filter((p) => p.status === 'checked')
-            .map((p) => p.checks),
+      checks,
+      evidenceHash,
+      review: complete ? m.review : null,
+      verificationRecovery: m.verificationRecovery || null,
       jury: m.jury?.bundleHash === hash ? m.jury : null,
     };
     await writeFile(
@@ -498,6 +514,8 @@ export class Runner {
         'tests',
         'jury',
         'review',
+        'reviewCheckpoint',
+        'verificationRecovery',
         'renderedArtifacts',
         'previewUrl',
         'submission',
@@ -828,7 +846,7 @@ export class Runner {
     await this.store.save(m);
   }
   async repairAllowance(m, detail) {
-    if (m.repairs >= 2)
+    if (m.repairs >= generationBudget(m).repairs)
       throw new Error(
         'Des vérifications échouent encore. Les résultats et fichiers sont conservés ; aucune réussite n’est déclarée. ' +
           detail,
@@ -838,8 +856,8 @@ export class Runner {
       m,
       label(
         m,
-        `Correction ciblée ${m.repairs}/2 : ${detail}`,
-        `Targeted repair ${m.repairs}/2: ${detail}`,
+        `Correction ciblée ${m.repairs}/${generationBudget(m).repairs} : ${detail}`,
+        `Targeted repair ${m.repairs}/${generationBudget(m).repairs}: ${detail}`,
       ),
       'warning',
     );
@@ -857,7 +875,7 @@ export class Runner {
       { deliverables: [d] },
       m.sources,
       join(this.store.dir(m.id), 'project'),
-      m.design?.calculationChecks || [],
+      activeCalculationChecks(m),
     );
     const checks = [result];
     if (d.kind === 'web')
@@ -997,6 +1015,29 @@ export class Runner {
     await this.writeBundle(m, m.bundle, signal);
     await this.store.save(m);
   }
+  async recoverVerification(m, language, signal) {
+    m.verificationRecovery ||= { rounds: 0, history: [], webTests: [] };
+    if (m.verificationRecovery.rounds >= generationBudget(m).verificationRounds)
+      return false;
+    assertGenerationBudget(m);
+    await this.activity(
+      m,
+      'Complément des preuves de vérification sur les fichiers enregistrés.',
+      'Adding verification evidence for the saved files.',
+    );
+    const raw = await this.call(
+      m,
+      verificationRecoveryPrompt(m, language),
+      verificationRecoverySchema,
+      signal,
+      'verification-recovery',
+    );
+    m.verificationRecovery.rounds++;
+    await this.store.save(m);
+    const changed = applyVerificationRecovery(raw, m, this.now());
+    await this.store.save(m);
+    return changed;
+  }
   async verifyComplete(m, signal) {
     const checks = [
       await verifyArtifacts(
@@ -1004,13 +1045,13 @@ export class Runner {
         m.plan,
         m.sources,
         join(this.store.dir(m.id), 'project'),
-        m.design?.calculationChecks || [],
+        activeCalculationChecks(m),
       ),
     ];
     if (hasWeb(m.plan)) {
       const web = await this.verify({
         url: m.previewUrl,
-        tests: m.originalTests || m.bundle.tests,
+        tests: activeWebTests(m),
         dir: this.store.dir(m.id),
         signal,
       });
@@ -1201,17 +1242,24 @@ export class Runner {
             'Relecture indépendante et contrôle de cohérence entre livrables.',
             'Independent review and cross-deliverable consistency checks.',
           );
-          m.review = validateReview(
-            await this.call(
+          const key = reviewKey(m);
+          if (m.reviewCheckpoint?.key !== key) {
+            m.review = validateReview(
+              await this.call(
+                m,
+                qualityReviewPrompt(m, language),
+                qualityReviewSchema,
+                signal,
+                'review',
+              ),
               m,
-              qualityReviewPrompt(m, language),
-              qualityReviewSchema,
-              signal,
-              'review',
-            ),
-            m,
-          );
-          await this.store.save(m);
+            );
+            m.reviewCheckpoint = {
+              key,
+              at: new Date(this.now()).toISOString(),
+            };
+            await this.store.save(m);
+          }
           if (!m.review.mustFix.length) {
             await this.assessJury(m, language, signal);
             await this.saveVerifiedVersion(m, true);
@@ -1253,6 +1301,9 @@ export class Runner {
           }
         }
         const targets = repairTargets(m.review, m.plan);
+        if (!targets.length && m.review.unverified?.length) {
+          if (await this.recoverVerification(m, language, signal)) continue;
+        }
         if (!targets.length)
           throw new Error(
             label(
@@ -1318,6 +1369,7 @@ export class Runner {
             : signal.aborted
               ? 'cancelled'
               : 'failed';
+      m.blocker = e.code === 'generation_budget' ? e.budget : null;
       m.error = signal.aborted
         ? signal.reason?.message || 'Mission arrêtée.'
         : e.message;

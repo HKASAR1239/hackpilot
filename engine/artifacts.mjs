@@ -1,3 +1,4 @@
+import { checkCSV } from './csv-evidence.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
@@ -523,10 +524,18 @@ export async function verifyArtifacts(
       if (d.kind === 'spreadsheet') {
         const wb = new ExcelJS.Workbook();
         await wb.xlsx.readFile(join(dir, a.id + '.xlsx'));
-        for (const s of a.sheets) {
+        for (const [sheetIndex, s] of a.sheets.entries()) {
           const ws = wb.getWorksheet(s.name),
             values = calculateRows(s.rows);
+          const csvPath = a.id + '-' + (sheetIndex + 1) + '.csv';
+          const csv = checkCSV(
+            await readFile(join(dir, csvPath), 'utf8'),
+            ws,
+            s.rows,
+            csvPath,
+          );
           evidence.push({
+            csv,
             sheet: s.name,
             headers: ws?.getRow(1).values,
             cells: s.rows.map((r, i) => ({

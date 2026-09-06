@@ -13,6 +13,15 @@ export type Idea = {
 };
 export type Mission = MissionSummary & {
   workflowVersion?: number;
+  generationBudget?: {
+    calls: number;
+    inputTokens: number;
+    outputTokens: number;
+    repairs: number;
+    verificationRounds: number;
+  };
+  budgetChanges?: { at: string; reason: string }[];
+  verificationRecovery?: { rounds: number };
   selection?: {
     selectedId: string;
     options: {

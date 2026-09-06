@@ -60,8 +60,29 @@ test('API accepts a 30-minute deadline, queues input during a call and preserves
       409,
       'An active timer cannot silently be bypassed.',
     );
+    assert.equal(
+      (await post(base + '/budget', { inputTokens: 900000 })).status,
+      409,
+    );
     assert.equal((await post(base + '/cancel', {})).status, 200);
     while (app.runner.running.size) await new Promise((r) => setTimeout(r, 10));
+    const usageBefore = structuredClone(m.usage);
+    assert.equal(
+      (
+        await post(base + '/budget', {
+          inputTokens: 900000,
+          reason: 'Resume with a larger explicit budget.',
+        })
+      ).status,
+      200,
+    );
+    assert.deepEqual(m.usage, usageBefore);
+    assert.equal(m.generationBudget.inputTokens, 900000);
+    assert.equal(m.budgetChanges.length, 1);
+    assert.equal(
+      (await post(base + '/budget', { inputTokens: -2 })).status,
+      400,
+    );
     m.status = 'expired';
     assert.equal(
       (await post(base + '/schedule', { deadlineAt: next })).status,

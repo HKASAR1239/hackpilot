@@ -1,6 +1,6 @@
 # HackPilot
 
-**v0.0.8** · first project using Astra :)
+**v0.0.9** · first project using Astra :)
 
 **Turn hackathon briefs and case studies into deliverables you can inspect, test, and export.**
 
@@ -21,7 +21,8 @@ _English interface, showing a real run on a fictional equipment-sharing brief. S
 - **Choose useful deliverables.** Required formats take priority. HackPilot can propose a website, simulator, or another addition when it helps answer the assignment and fits the available time.
 - **Produce editable files.** Download reports, PowerPoint decks, Excel models with formulas, and web prototype source code.
 - **Build from a shared reference.** Compare alternatives, trace facts to source quotations, label assumptions, evaluate common calculations, define executable input-change checks for spreadsheets, and define acceptance criteria before production. A separate capability review checks that the criteria can be met by the supported formats.
-- **Check and correct.** Save and test each deliverable separately, then review the complete response against its criteria and cross-check consistency. Corrections target the affected deliverables; up to two repair rounds are available.
+- **Check and correct.** Save and test each deliverable separately, then review the complete response against its criteria and cross-check consistency. Corrections target the affected deliverables; two repair rounds are available by default.
+- **Recover verification.** Resume saved work after a call or token limit, with visible budgets and an explicit change history. Missing evidence can trigger additional browser or calculation checks, keeping original browser tests and recording justified calculation-check replacements. Accepted content reviews are reused when their evidence is unchanged.
 - **Pick up where you left off.** Your brief and settings are saved in the browser. Reloading also restores the open project, selected tab, and source file without restarting generation. Search previous projects and open completed work directly on its results.
 - **Keep the work inspectable.** Follow the current step and elapsed time, read the execution log, sources, and limitations, stop a run, resume interrupted work, and export the project as a ZIP.
 

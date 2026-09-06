@@ -92,6 +92,14 @@ export function qualityResponder(
         blockingIssues: [],
         limitations: [],
       };
+    if (request.purpose === 'verification-recovery')
+      return {
+        summary: 'No executable field evidence is available.',
+        webTests: [],
+        calculationChecks: [],
+        replacements: [],
+        unavailable: [],
+      };
     if (request.purpose === 'review')
       return onReview
         ? onReview(request, reviewFixture(design))

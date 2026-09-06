@@ -43,6 +43,7 @@ try {
     .getByText('Connexion au modèle interrompue.', { exact: false })
     .waitFor();
   m.status = 'failed';
+  m.usage.input = 600001;
   m.schedule = createSchedule({
     hours: 0.5,
     deadlineAt: new Date(Date.now() + 120000).toISOString(),
@@ -60,6 +61,25 @@ try {
   );
   await page.getByRole('link', { name: 'Modifier l’échéance' }).click();
   await page.getByText('Jalons et échéance', { exact: true }).waitFor();
+  await page
+    .getByRole('heading', { name: 'Budget de génération', exact: true })
+    .waitFor();
+  await page
+    .locator('summary')
+    .filter({ hasText: 'Modifier le budget' })
+    .click();
+  await page.locator('#budget-inputTokens').fill('900000');
+  await page.getByRole('button', { name: 'Enregistrer le budget' }).click();
+  await page.getByText('900 000', { exact: false }).first().waitFor();
+  assert.equal(m.generationBudget.inputTokens, 900000);
+  assert.equal(m.usage.input, 600001);
+  assert.equal(m.budgetChanges.length, 1);
+  await page.reload();
+  await page.locator('#language').selectOption('en');
+  await page
+    .getByRole('heading', { name: 'Generation budget', exact: true })
+    .waitFor();
+  await page.screenshot({ path: join(dir, 'budget-mobile.png') });
   assert.ok(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

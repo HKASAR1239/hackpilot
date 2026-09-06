@@ -1,6 +1,8 @@
+import { validateBrowserTests } from './schema.mjs';
 import { chromium } from 'playwright';
 import { join } from 'node:path';
 export async function verify({ url, tests, dir, signal }) {
+  validateBrowserTests(tests);
   const browser = await chromium.launch({ headless: true });
   const results = [];
   const runtimeErrors = [];
@@ -22,6 +24,25 @@ export async function verify({ url, tests, dir, signal }) {
             : route.abort();
         } catch {
           return route.abort();
+        }
+      });
+      await ctx.addInitScript(() => {
+        window.__hackpilotStorageMode = 'normal';
+        for (const method of ['getItem', 'setItem', 'removeItem', 'clear']) {
+          const original = Storage.prototype[method];
+          Storage.prototype[method] = function (...args) {
+            const mode = window.__hackpilotStorageMode;
+            if (
+              mode === 'unavailable' ||
+              (mode === 'read-failure' && method === 'getItem') ||
+              (mode === 'write-failure' && method !== 'getItem')
+            )
+              throw new DOMException(
+                'Storage failure simulated by the verifier.',
+                'QuotaExceededError',
+              );
+            return original.apply(this, args);
+          };
         }
       });
       return ctx;
@@ -79,11 +100,26 @@ export async function verify({ url, tests, dir, signal }) {
             await p.reload({ waitUntil: 'networkidle' });
             continue;
           }
+          if (step.action === 'storageMode') {
+            await p.evaluate((value) => {
+              window.__hackpilotStorageMode = value;
+            }, step.value);
+            continue;
+          }
           const loc = p.locator(step.selector);
           if (step.action === 'fill') await loc.fill(step.value);
           else if (step.action === 'click') await loc.click();
           else if (step.action === 'select') await loc.selectOption(step.value);
           else if (step.action === 'check') await loc.check();
+          else if (step.action === 'uncheck') await loc.uncheck();
+          else if (step.action === 'assertDisabled') {
+            if (!(await loc.isDisabled()))
+              throw new Error('Expected a disabled control: ' + step.selector);
+          } else if (step.action === 'assertValue') {
+            if ((await loc.inputValue()) !== step.value)
+              throw new Error('Unexpected field value: ' + step.selector);
+          } else if (step.action === 'assertHidden')
+            await loc.waitFor({ state: 'hidden' });
           else if (step.action === 'assertVisible')
             await loc.waitFor({ state: 'visible' });
           else if (step.action === 'assertText') {
@@ -103,6 +139,7 @@ export async function verify({ url, tests, dir, signal }) {
         results.push({
           name: test.name,
           passed: true,
+          evidence: { steps: test.steps },
           detail:
             test.steps.length + ' étapes exécutées, assertions vérifiées.',
         });

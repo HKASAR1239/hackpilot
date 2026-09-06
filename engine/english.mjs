@@ -84,6 +84,11 @@ export function englishMessage(text) {
   if (messages[text]) return messages[text];
   const patterns = [
     [
+      /^Le budget de génération est atteint\. Les résultats sont conservés\. (calls|inputTokens|outputTokens) : (\d+) \/ (\d+)\. Modifiez le budget dans Pilotage avant de reprendre\.$/,
+      (m) =>
+        `Generation budget reached (${m[1]}: ${m[2]} / ${m[3]}). Saved results are preserved. Change the budget in Control room before resuming.`,
+    ],
+    [
       /^Le temps alloué à cet appel \((\d+) s\) est écoulé\. Les livrables enregistrés sont conservés\.$/,
       (m) =>
         `The time allocated to this call (${m[1]} s) has elapsed. Saved deliverables are preserved.`,

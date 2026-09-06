@@ -89,21 +89,25 @@ Do not put credentials in a brief. Project exports include source material and s
 
 ## Budgets and recovery
 
-| Limit                                                     | Scope                                                               |
-| --------------------------------------------------------- | ------------------------------------------------------------------- |
-| One active project                                        | Per server                                                          |
-| 30 minutes to 30 days                                     | Persistent deadline for new projects                                |
-| Two hours                                                 | Maximum duration of a session, within the deadline                  |
-| Up to thirty minutes                                      | Per model call; shorter allowances preserve time for remaining work |
-| 24 model calls by default (8–72 configurable at creation) | Per project                                                         |
-| 600,000 input / 180,000 output tokens                     | Per project, checked between calls                                  |
-| Two repairs and up to two contribution trials             | Per project                                                         |
+| Limit                                                                                           | Scope                                                               |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| One active project                                                                              | Per server                                                          |
+| 30 minutes to 30 days                                                                           | Persistent deadline for new projects                                |
+| Two hours                                                                                       | Maximum duration of a session, within the deadline                  |
+| Up to thirty minutes                                                                            | Per model call; shorter allowances preserve time for remaining work |
+| 24 model calls by default (8–72 configurable at creation)                                       | Per project                                                         |
+| 600,000 input / 180,000 output tokens by default                                                | Per project, checked between calls                                  |
+| Two content repairs, two verification recovery rounds by default; up to two contribution trials | Per project                                                         |
 
 For new projects, **available time** sets the actual deadline. A restart, pause or resume does not extend it or reset usage. Time is reserved for verification; optional proposals are deferred when their estimated cost would consume the reserve. Estimates are imperfect and a hard deadline can still interrupt a step. Checked results remain available through **Checked version**. To extend a deadline deliberately, use **Control room → Milestones and deadline → Change deadline** between runs. The change is recorded.
 
 Long projects use sessions of at most two hours. Resume starts the next session within the same deadline. This release provides resumable milestones, not a background scheduler or automated field research. Projects created before v0.0.7 retain the old two-hour-per-attempt behavior and do not receive the new rubric or contribution workflow automatically.
 
-A saved plan and reference are reused. Checked deliverables are skipped, and pending repairs retain their allowance. Unsupported explicit requirements are reported. Missing verification blocks completion without rewriting a correct file unless a defect is identified. Unchanged exported documents retain their bytes. An interrupted model call cannot resume its hidden reasoning; only unfinished work is requested again.
+**Control room → Generation budget** displays consumed calls, input/output tokens, content repairs and verification recovery rounds. Between runs, **Change budget** records an explicit limit change; it never resets usage or extends the deadline. Limits are checked between calls and include repeated input context. Optional work also reserves estimated tokens for the final checks. An exhausted token budget can stop a project even when calls and time remain.
+
+Missing executable evidence can be completed on the saved files. Browser additions retain every original scenario, support disabled controls and simulated local storage failures, and record the executed steps. CSV values are read back and compared with Excel. A calculation check contradicted by a documented content correction can be replaced only with a recorded reason and independently validated expectations; unchanged checks remain mandatory. External field evidence remains unverified. Verification has a separate bounded allowance and cannot silently approve missing evidence.
+
+A saved plan and reference are reused. Checked deliverables are skipped, and pending repairs retain their allowance. Unsupported explicit requirements are reported. Missing verification blocks completion without rewriting a correct file unless a defect is identified. Unchanged exported documents retain their bytes. An accepted content review is reused only when the bundle, sources, criteria, checks and execution evidence still match. Verification histories and budget changes are included in the project export. An interrupted model call cannot resume its hidden reasoning; only unfinished work is requested again.
 
 An individual call may cross a token threshold before the next check. These are not monetary caps; your account's usage limits still apply. Reported usage can omit tokens consumed by an interrupted call.
 

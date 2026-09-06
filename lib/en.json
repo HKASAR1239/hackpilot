@@ -297,5 +297,17 @@
   "Traitement adapté au délai": "Work scoped to your deadline",
   "Une version d’essai est en cours. La version contrôlée précédente reste disponible au téléchargement.": "A trial version is in progress. The previous checked version remains available to download.",
   "Connexion au modèle interrompue. Tentative de reconnexion en cours ; aucun résultat supplémentaire n’est encore enregistré.": "The model connection was interrupted. Reconnecting; no additional result has been saved yet.",
-  "La reprise conserve cette échéance. Si le délai le permet, modifiez-la avant de relancer.": "Resuming keeps this deadline. If the assignment permits more time, change it before retrying."
+  "La reprise conserve cette échéance. Si le délai le permet, modifiez-la avant de relancer.": "Resuming keeps this deadline. If the assignment permits more time, change it before retrying.",
+  "Budget de génération": "Generation budget",
+  "Appels": "Calls",
+  "Jetons d’entrée": "Input tokens",
+  "Jetons de sortie": "Output tokens",
+  "Corrections du contenu": "Content repair rounds",
+  "Compléments de vérification": "Verification recovery rounds",
+  "Les plafonds cumulent tous les appels. La reprise conserve la consommation et les fichiers enregistrés.": "Limits cover all calls. Resuming preserves consumed usage and saved files.",
+  "Modifier le budget": "Change budget",
+  "Enregistrer le budget": "Save budget",
+  "Historique du budget": "Budget history",
+  "Budget ajusté depuis Pilotage.": "Budget updated in Control room.",
+  "Budget atteint. Les fichiers sont conservés.": "Budget reached. Your files are preserved."
 }

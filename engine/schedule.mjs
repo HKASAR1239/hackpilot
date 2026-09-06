@@ -1,3 +1,4 @@
+import { generationBudget } from '../lib/generation-budget.mjs';
 import {
   EXECUTION_LIMIT_MS,
   CALL_LIMIT_MS,
@@ -129,7 +130,16 @@ export function optionalWorkFits(
       Date.parse(m.schedule.milestoneAt || m.schedule.deadlineAt) - now,
     ),
   );
+  const budget = generationBudget(m);
+  const completedCalls = Math.max(
+    1,
+    (m.calls || []).filter((c) => c.usage).length || m.usage.calls,
+  );
+  const expectedInput = Math.max(10000, m.usage.input / completedCalls);
+  const expectedOutput = Math.max(1000, m.usage.output / completedCalls);
   return (
+    m.usage.input + expectedInput * (calls + 2) < budget.inputTokens &&
+    m.usage.output + expectedOutput * (calls + 2) < budget.outputTokens &&
     left > estimatedMinutes * MINUTE + m.schedule.verificationReserveMs &&
     m.usage.calls + calls + 2 <= m.schedule.callBudget
   );

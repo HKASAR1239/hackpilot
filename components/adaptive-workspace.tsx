@@ -1,4 +1,6 @@
 'use client';
+import { BudgetControls } from './budget-controls';
+import { generationBudget, exhaustedBudget } from '@/lib/generation-budget.mjs';
 import { useState, useSyncExternalStore } from 'react';
 import { useContributionDraft } from '@/lib/use-contribution-draft';
 import {
@@ -122,6 +124,23 @@ export function ScheduleSummary({ mission }: { mission: Mission }) {
             </a>
           </output>
         )}
+      <div>
+        <span>
+          <small>{t('Jetons d’entrée')}</small>
+          <strong>
+            {(mission.usage?.input || 0).toLocaleString(locale)} /{' '}
+            {generationBudget(mission).inputTokens.toLocaleString(locale)}
+          </strong>
+        </span>
+      </div>
+      {exhaustedBudget(mission) && (
+        <output>
+          {t('Budget atteint. Les fichiers sont conservés.')}{' '}
+          <a href={`#project=${mission.id}&tab=control`}>
+            {t('Modifier le budget')}
+          </a>
+        </output>
+      )}
       {mission.lastVerified && (
         <a
           className="verified-download"
@@ -475,6 +494,7 @@ export function AdaptiveWorkspace({
             ))}
           </div>
         </section>
+        <BudgetControls mission={mission} onChange={onChange} />
         <section className="panel milestone-panel">
           <h2>
             <CalendarClock size={19} />

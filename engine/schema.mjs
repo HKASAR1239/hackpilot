@@ -76,6 +76,11 @@ const step = obj({
       'assertText',
       'assertVisible',
       'reload',
+      'uncheck',
+      'assertDisabled',
+      'assertValue',
+      'assertHidden',
+      'storageMode',
     ],
   },
   selector: s,
@@ -271,6 +276,14 @@ export function validateBundle(bundle, plan) {
     throw new Error('Au moins deux scénarios de test sont nécessaires.');
   if (!web && bundle.tests.length)
     throw new Error('Aucun test navigateur attendu pour ces documents.');
+  validateBrowserTests(bundle.tests);
+  if (!Array.isArray(bundle.limitations)) bundle.limitations = [];
+  return bundle;
+}
+
+export function validateBrowserTests(tests) {
+  if (!Array.isArray(tests) || tests.length > 24)
+    throw new Error('Invalid browser test suite.');
   const actions = new Set([
     'fill',
     'click',
@@ -279,8 +292,13 @@ export function validateBundle(bundle, plan) {
     'assertText',
     'assertVisible',
     'reload',
+    'uncheck',
+    'assertDisabled',
+    'assertValue',
+    'assertHidden',
+    'storageMode',
   ]);
-  for (const test of bundle.tests) {
+  for (const test of tests) {
     if (
       !test.name ||
       !Array.isArray(test.steps) ||
@@ -290,7 +308,13 @@ export function validateBundle(bundle, plan) {
       throw new Error('Scénario de test invalide.');
     if (
       !test.steps.some((x) =>
-        ['assertText', 'assertVisible'].includes(x.action),
+        [
+          'assertText',
+          'assertVisible',
+          'assertDisabled',
+          'assertValue',
+          'assertHidden',
+        ].includes(x.action),
       )
     )
       throw new Error('Un test doit vérifier un résultat observable.');
@@ -301,10 +325,19 @@ export function validateBundle(bundle, plan) {
         typeof step.value !== 'string'
       )
         throw new Error('Action de test invalide.');
-      if (step.action !== 'reload' && !step.selector.trim())
+      if (
+        !['reload', 'storageMode'].includes(step.action) &&
+        !step.selector.trim()
+      )
         throw new Error('Sélecteur de test vide.');
+      if (
+        step.action === 'storageMode' &&
+        !['normal', 'read-failure', 'write-failure', 'unavailable'].includes(
+          step.value,
+        )
+      )
+        throw new Error('Invalid storage fault mode.');
     }
   }
-  if (!Array.isArray(bundle.limitations)) bundle.limitations = [];
-  return bundle;
+  return tests;
 }

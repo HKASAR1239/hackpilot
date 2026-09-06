@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { zipSync, strToU8 } from 'fflate';
 import { Store } from './store.mjs';
 import { addContribution } from './contributions.mjs';
+import { reviseGenerationBudget } from '../lib/generation-budget.mjs';
 import { reviseDeadline } from './schedule.mjs';
 import { Runner } from './runner.mjs';
 import { capabilities, generationSettings } from './provider.mjs';
@@ -275,7 +276,7 @@ export async function createApp({
         return;
       }
       const match = path.match(
-        /^\/api\/missions\/([a-f0-9-]{36})(?:\/(resume|cancel|file|download|export|verified-export|screenshot|contributions|schedule))?$/,
+        /^\/api\/missions\/([a-f0-9-]{36})(?:\/(resume|cancel|file|download|export|verified-export|screenshot|contributions|schedule|budget))?$/,
       );
       if (match) {
         const m = store.get(match[1]),
@@ -301,6 +302,16 @@ export async function createApp({
           if (m.status === 'expired') m.status = 'paused';
           await store.save(m);
           reply(res, 200, m.schedule);
+          return;
+        }
+        if (action === 'budget' && req.method === 'POST') {
+          if (runner.running.has(m.id))
+            throw Object.assign(new Error('Change the budget between runs.'), {
+              status: 409,
+            });
+          const limits = reviseGenerationBudget(m, await body());
+          await store.save(m);
+          reply(res, 200, limits);
           return;
         }
         if (action === 'resume' && req.method === 'POST') {
@@ -400,6 +411,9 @@ export async function createApp({
             jury: version ? version.jury : m.jury,
             schedule: m.schedule,
             contributions: m.contributions,
+            generationBudget: m.generationBudget,
+            budgetChanges: m.budgetChanges,
+            verificationRecovery: m.verificationRecovery,
             version,
           })) {
             if (value)
@@ -416,7 +430,11 @@ export async function createApp({
           );
           files['hackpilot/tests.json'] = strToU8(
             JSON.stringify(
-              { scenarios: m.originalTests, results: m.tests },
+              {
+                scenarios: m.originalTests,
+                supplementaryScenarios: m.verificationRecovery?.webTests || [],
+                results: m.tests,
+              },
               null,
               2,
             ),
